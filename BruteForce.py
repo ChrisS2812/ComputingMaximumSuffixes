@@ -294,7 +294,8 @@ def load_alg_from_checkpoint(root_comp):
     return alg
 
 
-# TODO: describe
+# Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
+# else it generates a first sensible algorithm state before calling check_alg
 def check_alg_for_root_comp(root_comp, words_with_max_suffix, comps):
     alg = load_alg_from_checkpoint(root_comp)
     if alg == -1:
@@ -305,11 +306,13 @@ def check_alg_for_root_comp(root_comp, words_with_max_suffix, comps):
     return result
 
 
-# TODO: describe
+# Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
+# Returns 'True' if a correct decision tree was found.
 def check_alg(alg, index, words, comps, prev_comps):
-    # Divide and Conquer
     if not is_last_comp(index):
+        #Divide
         if index == 0:
+            # Note: We do not want to manipulate the root - different root-values will be checked in other executions
             # Compute three subsets of the words and of the tree
             i1, i2 = alg[index].obj
             smaller_list = []
@@ -334,7 +337,6 @@ def check_alg(alg, index, words, comps, prev_comps):
             comps_new_smaller.remove(current_comp)
             comps_new_equal.remove(current_comp)
             comps_new_bigger.remove(current_comp)
-            # Note: We do not want to manipulate the root - different values will be checked in other executions
             if (check_alg(alg, index * 3 + 1, smaller_list, comps_new_smaller, [(current_comp, '<')]) and
                     check_alg(alg, index * 3 + 2, equal_list, comps_new_equal, [(current_comp, '=')]) and
                     check_alg(alg, index * 3 + 3, bigger_list, comps_new_bigger, [(current_comp, '>')])):
@@ -399,6 +401,7 @@ def check_alg(alg, index, words, comps, prev_comps):
         return False
 
     else:
+        #Conquer
         for c_new in [c for c in comps if c not in alg[index].checked]:
             result_map = {}
             alg[index].obj = c_new
