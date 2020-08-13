@@ -173,29 +173,100 @@ class Util:
 
     # Helping function that computes for a list of previously executed comparison and a new (current) comparison
     # whether, after carrying out the new comparison, any other comparisons can be deduced transitively
-
-    # todo add fitting sign to return
     @staticmethod
     def compute_transitive_dependencies(previous_comps, current_comp):
         result = []
         (cc1, cc2), cr = current_comp
         for (pc1, pc2), pr in previous_comps:
+            # find a pair for a transitive relation (if it exists)
+            trans_pair = -1
+            case = -1
             if cc1 == pc1:
                 # (i,j) and (i,k)
-                if cr == '=' or pr == '=' or (cr == '<' and pr == '>') or (cr == '>' and pr == '<'):
-                    result.append(tuple(sorted((cc2, pc2))))
+                trans_pair = (cc2, pc2)  # (j,k)
+                case = 1
             elif cc2 == pc2:
                 # (i,j) and (k,j)
-                if cr == '=' or pr == '=' or (cr == '<' and pr == '>') or (cr == '>' and pr == '<'):
-                    result.append(tuple(sorted((cc1, pc1))))
+                trans_pair = (cc1, pc1)  # (i,k)
+                case = 2
             elif cc1 == pc2:
                 # (i,j) and (k,i):
-                if cr == '=' or pr == '=' or (cr == '<' and pr == '<') or (cr == '>' and pr == '>'):
-                    result.append(tuple(sorted((cc2, pc1))))
+                trans_pair = (cc2, pc1)  # (j,k)
+                case = 3
             elif cc2 == pc1:
                 # (i,j) and (j,k):
-                if cr == '=' or pr == '=' or (cr == '<' and pr == '<') or (cr == '>' and pr == '>'):
-                    result.append(tuple(sorted((cc1, pc2))))
+                trans_pair = (cc1, pc2)  # (i,k)
+                case = 4
+
+            if trans_pair != -1:
+                # found one!
+                # call c the index from current comparison and p the index from previous comparison
+                if cr == '=' and pr == '=':
+                    # cc1=cc2 and pp1=pp2 => c = p
+                    result.append((trans_pair, '='))
+                elif cr == '=' and pr == '<':
+                    # cc1=ccc2 and pp1<pp2
+                    if case in [1, 4]:
+                        result.append((trans_pair, '<'))
+                    elif case in [2, 3]:
+                        result.append((trans_pair, '>'))
+                elif cr == '=' and pr == '>':
+                    # cc1=ccc2 and pp1>pp2
+                    if case in [1, 4]:
+                        result.append((trans_pair, '>'))
+                    elif case in [2, 3]:
+                        result.append((trans_pair, '<'))
+                elif cr == '<' and pr == '=':
+                    # cc1<ccc2 and pp1=pp2
+                    if case in [1, 3]:
+                        result.append((trans_pair, '>'))
+                    elif case in [2, 4]:
+                        result.append((trans_pair, '<'))
+                elif cr == '>' and pr == '=':
+                    # cc1>ccc2 and pp1=pp2
+                    if case in [1, 3]:
+                        result.append((trans_pair, '<'))
+                    elif case in [2, 4]:
+                        result.append((trans_pair, '>'))
+                elif cr == '<' and pr == '>':
+                    # cc1<ccc2 and pp1>pp2
+                    if case == 1:
+                        result.append((trans_pair, '>'))
+                    elif case == 2:
+                        result.append((trans_pair, '<'))
+                elif cr == '>' and pr == '<':
+                    # cc1>ccc2 and pp1<pp2
+                    if case == 1:
+                        result.append((trans_pair, '<'))
+                    elif case == 2:
+                        result.append((trans_pair, '>'))
+                elif cr == '<' and pr == '<':
+                    # cc1<ccc2 and pp1<pp2
+                    if case == 3:
+                        result.append((trans_pair, '>'))
+                    elif case == 4:
+                        result.append((trans_pair, '<'))
+                elif cr == '>' and pr == '>':
+                    # cc1>ccc2 and pp1>pp2
+                    if case == 3:
+                        result.append((trans_pair, '<'))
+                    elif case == 4:
+                        result.append((trans_pair, '>'))
+
+        # Clean up results - it is expected that smaller index is always at the first place
+        new_result = []
+        for res in result:
+            if res[0][0] <= res[0][1]:
+                new_result.append(res)
+                continue
+            else:
+                new_tuple = (res[0][1], res[0][0])
+                if res[1] == '=':
+                    new_result.append((new_tuple, '='))
+                elif res[1] == '<':
+                    new_result.append((new_tuple, '>'))
+                else:
+                    new_result.append((new_tuple, '<'))
         return result
 
     # Helping function that regularly saves current state of algorithm (i.e. the current tree)
