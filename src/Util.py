@@ -267,7 +267,7 @@ class Util:
                     new_result.append((new_tuple, '>'))
                 else:
                     new_result.append((new_tuple, '<'))
-        return result
+        return new_result
 
     # Helping function that regularly saves current state of algorithm (i.e. the current tree)
     # to a file from which it can be reloaded.

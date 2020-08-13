@@ -13,7 +13,7 @@ from anytree.exporter import DotExporter
 
 from src.Util import Util
 
-N = 5
+N = 6
 M = 5
 DEBUG = True
 ONLY_HIGHEST_DEBUG = True
@@ -147,23 +147,23 @@ def check_alg(alg, index, words, comps, prev_comps):
                 comps_smaller_new = copy.deepcopy(comps)
                 prev_comps_smaller_new = copy.deepcopy(prev_comps)
                 comps_smaller_new.remove(c_new)
-                for comp, res in [t for t in transitive_smaller if t in comps]:
+                for comp, res in [t for t in transitive_smaller if t[0] in comps]:
                     comps_smaller_new.remove(comp)
-                    prev_comps_smaller_new.append(res)
+                    prev_comps_smaller_new.append((comp, res))
 
                 comps_equal_new = copy.deepcopy(comps)
                 comps_equal_new.remove(c_new)
                 prev_comps_equal_new = copy.deepcopy(prev_comps)
-                for comp, res in [t for t in transitive_equal if t in comps]:
+                for comp, res in [t for t in transitive_equal if t[0] in comps]:
                     comps_equal_new.remove(comp)
-                    prev_comps_equal_new.append(res)
+                    prev_comps_equal_new.append((comp, res))
 
                 comps_bigger_new = copy.deepcopy(comps)
                 comps_bigger_new.remove(c_new)
                 prev_comps_bigger_new = copy.deepcopy(prev_comps)
-                for comp, res in [t for t in transitive_bigger if t in comps]:
+                for comp, res in [t for t in transitive_bigger if t[0] in comps]:
                     comps_bigger_new.remove(comp)
-                    prev_comps_bigger_new.append(res)
+                    prev_comps_bigger_new.append((comp, res))
 
                 if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps_smaller_new) and
                         check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps_equal_new) and
