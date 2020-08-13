@@ -7,7 +7,6 @@ import copy
 import datetime
 import itertools
 import os
-import threading
 import time
 import timeit
 from multiprocessing import Pool
@@ -24,6 +23,9 @@ M = 5
 DEBUG = True
 ONLY_HIGHEST_DEBUG = True
 NR_WORKERS = 1
+
+SAVE_INTERVAL = 1800  # 30 minutes
+LAST_SAVE = int(time.time())
 
 dir = "N{}M{}".format(N, M)
 Path(dir).mkdir(parents=True, exist_ok=True)
@@ -256,32 +258,18 @@ def generate_algorithm(root_value):
     return alg
 
 
-# Helping function that saves current state of algorithm (i.e. the current tree) to a file from which it can be
-# reloaded.
-def save_current_graph(root, interval):
-    i = 0
-    t = threading.currentThread()
-    while getattr(t, "do_run", True):
-        if i == interval:
-            # time for a regular save
-            ts = str(datetime.datetime.now().timestamp() * 1000)
-            filename = "{}_{}.json".format(root.obj, ts)
-            final_path = os.path.join(checkpoint_dir, filename)
-            with open(final_path, 'w') as f:
-                JsonExporter(indent=2).write(root, f)
-            i = 0
-        else:
-            # Nothing to do here
-            time.sleep(1)
-            # dirty solution for regularly checking for liveness
-            i += 1
+# Helping function that regularly saves current state of algorithm (i.e. the current tree)
+# to a file from which it can be reloaded.
+def save_current_graph(root):
+    global LAST_SAVE
+    ts = int(time.time())
+    if ts - LAST_SAVE >= SAVE_INTERVAL:
+        filename = "{}_{}.json".format(root.obj, ts)
+        final_path = os.path.join(checkpoint_dir, filename)
 
-    # save a last time
-    ts = str(datetime.datetime.now().timestamp() * 1000)
-    filename = "{}_{}.json".format(root.obj, ts)
-    final_path = os.path.join(checkpoint_dir, filename)
-    with open(final_path, 'w') as f:
-        JsonExporter(indent=2).write(root, f)
+        with open(final_path, 'w') as f:
+            JsonExporter(indent=2).write(root, f)
+        LAST_SAVE = ts
 
 
 def load_alg_from_checkpoint(root_comp):
@@ -335,14 +323,6 @@ def check_alg(alg, index, words, comps, prev_comps):
                     equal_list.append(entry)
                 else:
                     bigger_list.append(entry)
-            # this is only executed once - use this place to start a thread that regularly saves checkpoints
-            save_thread = threading.Thread(target=save_current_graph, args=(alg[0], 1800))
-            try:
-                save_thread.start()
-            except (KeyboardInterrupt, SystemExit):
-                # Cleanup on interrupt
-                save_thread.do_run = False
-                save_thread.join()
 
             # remove the comparison value at the current node from further consideration
             comps_new_smaller = copy.deepcopy(comps)
@@ -358,13 +338,8 @@ def check_alg(alg, index, words, comps, prev_comps):
             if (check_alg(alg, index * 3 + 1, smaller_list, comps_new_smaller, [(current_comp, '<')]) and
                     check_alg(alg, index * 3 + 2, equal_list, comps_new_equal, [(current_comp, '=')]) and
                     check_alg(alg, index * 3 + 3, bigger_list, comps_new_bigger, [(current_comp, '>')])):
-                # Cleanup on finishing
-                save_thread.do_run = False
-                save_thread.join()
                 return alg
             else:
-                save_thread.do_run = False
-                save_thread.join()
                 return
         else:
             # not at root - here we want to check all possible values for the node (that have not yet been checked)
@@ -415,9 +390,11 @@ def check_alg(alg, index, words, comps, prev_comps):
                         check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps) and
                         check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps)):
                     alg[index].checked = []
+                    save_current_graph(alg[0])
                     return True
                 else:
                     alg[index].checked.append(c_new)
+                    save_current_graph(alg[0])
         alg[index].checked = []
         return False
 
