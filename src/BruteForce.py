@@ -74,13 +74,13 @@ def check_alg_for_root_comp(root_comp, words, comps):
         alg = generate_algorithm(root_comp)
     if DEBUG:
         print("Starting checking of algorithms with root value {}".format(root_comp))
-    is_valid = check_alg(alg, 0, words, comps, [])
+    is_valid = check_alg(alg, 0, words, comps, [], 0)
     return is_valid
 
 
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
-def check_alg(alg, index, words, comps, prev_comps):
+def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
     if not MY_UTIL.is_last_comp(index):
         # Divide
         if index == 0:
@@ -109,9 +109,16 @@ def check_alg(alg, index, words, comps, prev_comps):
             comps_new_smaller.remove(current_comp)
             comps_new_equal.remove(current_comp)
             comps_new_bigger.remove(current_comp)
-            if (check_alg(alg, index * 3 + 1, smaller_list, comps_new_smaller, [(current_comp, '<')]) and
-                    check_alg(alg, index * 3 + 2, equal_list, comps_new_equal, [(current_comp, '=')]) and
-                    check_alg(alg, index * 3 + 3, bigger_list, comps_new_bigger, [(current_comp, '>')])):
+
+            # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
+            # conduct a comparison between the a_i and a_{i+1} which yields  a_i < a_{i+1} we can subsequently only
+            # investigate the subword a_{i+1} a_{i+2} ... a_n
+            if current_comp == (first_rel_char, first_rel_char + 1):
+                comps_new_smaller = [c for c in comps_new_smaller if c[0] != first_rel_char]
+
+            if (check_alg(alg, index*3+1, smaller_list, comps_new_smaller, [(current_comp, '<')], first_rel_char+1) and
+                    check_alg(alg, index*3+2, equal_list, comps_new_equal, [(current_comp, '=')], first_rel_char) and
+                    check_alg(alg, index*3+3, bigger_list, comps_new_bigger, [(current_comp, '>')], first_rel_char)):
                 return alg
             else:
                 return
@@ -147,27 +154,36 @@ def check_alg(alg, index, words, comps, prev_comps):
                 comps_smaller_new = copy.deepcopy(comps)
                 prev_comps_smaller_new = copy.deepcopy(prev_comps)
                 comps_smaller_new.remove(c_new)
-                for comp, res in [t for t in transitive_smaller if t[0] in comps]:
-                    comps_smaller_new.remove(comp)
-                    prev_comps_smaller_new.append((comp, res))
+                for c, res in [t for t in transitive_smaller if t[0] in comps]:
+                    comps_smaller_new.remove(c)
+                    prev_comps_smaller_new.append((c, res))
 
                 comps_equal_new = copy.deepcopy(comps)
                 comps_equal_new.remove(c_new)
                 prev_comps_equal_new = copy.deepcopy(prev_comps)
-                for comp, res in [t for t in transitive_equal if t[0] in comps]:
-                    comps_equal_new.remove(comp)
-                    prev_comps_equal_new.append((comp, res))
+                for c, res in [t for t in transitive_equal if t[0] in comps]:
+                    comps_equal_new.remove(c)
+                    prev_comps_equal_new.append((c, res))
 
                 comps_bigger_new = copy.deepcopy(comps)
                 comps_bigger_new.remove(c_new)
                 prev_comps_bigger_new = copy.deepcopy(prev_comps)
-                for comp, res in [t for t in transitive_bigger if t[0] in comps]:
-                    comps_bigger_new.remove(comp)
-                    prev_comps_bigger_new.append((comp, res))
+                for c, res in [t for t in transitive_bigger if t[0] in comps]:
+                    comps_bigger_new.remove(c)
+                    prev_comps_bigger_new.append((c, res))
 
-                if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps_smaller_new) and
-                        check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps_equal_new) and
-                        check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps_bigger_new)):
+                # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n
+                # and we conduct a comparison between the a_i and a_{i+1} which yields  a_i < a_{i+1} we can
+                # subsequently only investigate the subword a_{i+1} a_{i+2} ... a_n
+                if c_new == (first_rel_char, first_rel_char + 1):
+                    comps_smaller_new = [c for c in comps_smaller_new if c[0] != first_rel_char]
+
+                if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps_smaller_new,
+                              first_rel_char + 1) and
+                        check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps_equal_new,
+                                  first_rel_char) and
+                        check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps_bigger_new,
+                                  first_rel_char)):
                     alg[index].checked = []
                     MY_UTIL.save_current_graph(alg[0])
                     return True
