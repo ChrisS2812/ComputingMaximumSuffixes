@@ -116,9 +116,12 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             if current_comp == (first_rel_char, first_rel_char + 1):
                 comps_new_smaller = [c for c in comps_new_smaller if c[0] != first_rel_char]
 
-            if (check_alg(alg, index*3+1, smaller_list, comps_new_smaller, [(current_comp, '<')], first_rel_char+1) and
-                    check_alg(alg, index*3+2, equal_list, comps_new_equal, [(current_comp, '=')], first_rel_char) and
-                    check_alg(alg, index*3+3, bigger_list, comps_new_bigger, [(current_comp, '>')], first_rel_char)):
+            if (check_alg(alg, index * 3 + 1, smaller_list, comps_new_smaller, [(current_comp, '<')],
+                          first_rel_char + 1) and
+                    check_alg(alg, index * 3 + 2, equal_list, comps_new_equal, [(current_comp, '=')],
+                              first_rel_char) and
+                    check_alg(alg, index * 3 + 3, bigger_list, comps_new_bigger, [(current_comp, '>')],
+                              first_rel_char)):
                 return alg
             else:
                 return
@@ -237,7 +240,7 @@ def check_result(return_alg):
 words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
 print("Need to find Algorithm for {} interesting words".format(len(words_with_max_suffix)))
 
-start = timeit.default_timer()  # measure running time
+start = 0  # measure running time
 
 if NR_WORKERS > 1:
     # worker pool - each worker is responsible for a single root value
@@ -245,6 +248,7 @@ if NR_WORKERS > 1:
     try:
         results = []
         for comp in comp_pairs:
+            start = timeit.default_timer()  # measure running time
             r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, comp_pairs),
                                     callback=check_result)
             results.append(r)
@@ -261,6 +265,7 @@ if NR_WORKERS > 1:
         print("pool successfully closed")
 else:
     for comp in comp_pairs:
+        start = timeit.default_timer()  # measure running time
         working_alg = check_alg_for_root_comp(comp, words_with_max_suffix, comp_pairs)
         if working_alg:
             break
