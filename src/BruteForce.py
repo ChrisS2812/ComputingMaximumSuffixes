@@ -126,7 +126,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # not at root - here we want to check all possible values for the node (that have not yet been checked)
             for c_new in [c for c in comps if c not in alg[index].checked]:
                 if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
-                    print("[{}] Increasing index {} from {} to {}".format(alg[0], index, alg[index].obj, c_new))
+                    print("[{}] Increasing index {} from {} to {}".format(alg[0].obj, index, alg[index].obj, c_new))
 
                 alg[index].obj = c_new
 
