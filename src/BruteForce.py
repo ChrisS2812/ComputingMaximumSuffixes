@@ -1,0 +1,289 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
+# comparisons
+import copy
+import datetime
+import timeit
+from multiprocessing import Pool
+
+from anytree import Node, RenderTree
+from anytree.exporter import DotExporter
+
+from src.Util import Util
+
+N = 5
+M = 5
+DEBUG = True
+ONLY_HIGHEST_DEBUG = True
+NR_WORKERS = 1
+MY_UTIL = Util(N, M)
+
+# Compute all possible pairs of indices that can be compared
+comp_pairs = []
+for i in range(N):
+    for j in range(i + 1, N):
+        comp_pairs.append((i, j))
+print(comp_pairs)
+
+
+# Generates a decision tree for M comparisons with given root value that fulfils the following rule(s):
+# 1. No path contains the same node value twice
+#
+# Define a tree structure inside a list, each representing a different height of the tree. Anytree helps us
+# navigating the tree (i.e. finding children, parents etc.)
+def generate_algorithm(root_value):
+    alg = []
+    current_index = 0
+    for ga_i in range(M + 1):
+        if ga_i == 0:
+            # Root Node
+            root = Node(current_index, obj=root_value)
+            alg.append(root)
+            current_index += 1
+        elif ga_i == M:
+            # Leaf Nodes
+            for ga_j in range(3 ** M):
+                parent = alg[(current_index - 1) // 3]
+                alg.append(Node(current_index, obj="", parent=parent))
+                current_index += 1
+        else:
+            for ga_j in range(3 ** ga_i):
+                parent = alg[(current_index - 1) // 3]
+                parent_index = current_index
+                parent_values = []
+                # Collect all values of (grand-)parents of the current node
+                while parent_index != 0:
+                    parent_index = (parent_index - 1) // 3
+                    parent_values.append(alg[parent_index].obj)
+
+                for pair in comp_pairs:
+                    if pair not in parent_values:
+                        alg.append(Node(current_index, obj=pair, checked=[], parent=parent))
+                        current_index += 1
+                        break
+    return alg
+
+
+# Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
+# else it generates a first sensible algorithm state before calling check_alg
+def check_alg_for_root_comp(root_comp, words, comps):
+    alg = MY_UTIL.load_alg_from_checkpoint(root_comp)
+    if alg == -1:
+        alg = generate_algorithm(root_comp)
+    if DEBUG:
+        print("Starting checking of algorithms with root value {}".format(root_comp))
+    is_valid = check_alg(alg, 0, words, comps, [])
+    return is_valid
+
+
+# Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
+# Returns 'True' if a correct decision tree was found.
+def check_alg(alg, index, words, comps, prev_comps):
+    if not MY_UTIL.is_last_comp(index):
+        # Divide
+        if index == 0:
+            # Note: We do not want to manipulate the root - different root-values will be checked in other executions
+            # Compute three subsets of the words and of the tree
+            i1, i2 = alg[index].obj
+            smaller_list = []
+            equal_list = []
+            bigger_list = []
+            for entry in words:
+                curr_word = entry[0]
+                if curr_word[i1] < curr_word[i2]:
+                    smaller_list.append(entry)
+                elif curr_word[i1] == curr_word[i2]:
+                    equal_list.append(entry)
+                else:
+                    bigger_list.append(entry)
+
+            # remove the comparison value at the current node from further consideration
+            comps_new_smaller = copy.deepcopy(comps)
+            comps_new_equal = copy.deepcopy(comps)
+            comps_new_bigger = copy.deepcopy(comps)
+
+            current_comp = alg[index].obj
+
+            comps_new_smaller.remove(current_comp)
+            comps_new_equal.remove(current_comp)
+            comps_new_bigger.remove(current_comp)
+            if (check_alg(alg, index * 3 + 1, smaller_list, comps_new_smaller, [(current_comp, '<')]) and
+                    check_alg(alg, index * 3 + 2, equal_list, comps_new_equal, [(current_comp, '=')]) and
+                    check_alg(alg, index * 3 + 3, bigger_list, comps_new_bigger, [(current_comp, '>')])):
+                return alg
+            else:
+                return
+        else:
+            # not at root - here we want to check all possible values for the node (that have not yet been checked)
+            for c_new in [c for c in comps if c not in alg[index].checked]:
+                if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
+                    print("[Increasing] Increasing index {} from {} to {}".format(index, alg[index].obj, c_new))
+
+                alg[index].obj = c_new
+
+                # Compute three subsets of the words and of the tree
+                i1, i2 = alg[index].obj
+                smaller_list = []
+                equal_list = []
+                bigger_list = []
+                for entry in words:
+                    curr_word = entry[0]
+                    if curr_word[i1] < curr_word[i2]:
+                        smaller_list.append(entry)
+                    elif curr_word[i1] == curr_word[i2]:
+                        equal_list.append(entry)
+                    else:
+                        bigger_list.append(entry)
+
+                # Compute all comparisons that can be transitively deduced for each possible outcome
+                transitive_smaller = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '<'))
+                transitive_equal = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '='))
+                transitive_bigger = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '>'))
+
+                # remove current comparison and transitively clear comparisons
+                # from further consideration
+                comps_smaller_new = copy.deepcopy(comps)
+                comps_smaller_new.remove(c_new)
+                for c in [t for t in transitive_smaller if t in comps]:
+                    comps_smaller_new.remove(c)
+
+                comps_equal_new = copy.deepcopy(comps)
+                comps_equal_new.remove(c_new)
+                for c in [t for t in transitive_equal if t in comps]:
+                    comps_equal_new.remove(c)
+
+                comps_bigger_new = copy.deepcopy(comps)
+                comps_bigger_new.remove(c_new)
+                for c in [t for t in transitive_bigger if t in comps]:
+                    comps_bigger_new.remove(c)
+
+                # todo update prev_comps
+                if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps) and
+                        check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps) and
+                        check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps)):
+                    alg[index].checked = []
+                    MY_UTIL.save_current_graph(alg[0])
+                    return True
+                else:
+                    alg[index].checked.append(c_new)
+                    MY_UTIL.save_current_graph(alg[0])
+        alg[index].checked = []
+        return False
+
+    else:
+        # Conquer
+        for c_new in [c for c in comps if c not in alg[index].checked]:
+            res_map = {}
+            alg[index].obj = c_new
+
+            for curr_word, ground_truth in words:
+                res = MY_UTIL.compute_path_for_word(alg, curr_word)
+
+                result_map_key = str(res)
+                result_buffer = ""
+                for node_buffer in res:
+                    result_buffer += str(node_buffer)
+                    if node_buffer != res[-1]:
+                        result_buffer += " [{}]".format(alg[node_buffer].obj)
+                        result_buffer += " -> "
+                if result_map_key in res_map and res_map[result_map_key][1] != ground_truth:
+                    alg[index].checked.append(c_new)
+                    break
+
+                elif curr_word == words[-1][0]:
+                    alg[index].checked = []
+                    return True
+
+                else:
+                    res_map[result_map_key] = (curr_word, ground_truth)
+        alg[index].checked = []
+        return False
+
+
+# Helping function that stop the workers early when a solution was found
+working_alg = []
+
+
+def check_result(return_alg):
+    global working_alg
+    if not working_alg and return_alg is not None:
+        working_alg = return_alg
+        workers.terminate()
+
+
+words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
+print("Need to find Algorithm for {} interesting words".format(len(words_with_max_suffix)))
+
+start = timeit.default_timer()  # measure running time
+
+if NR_WORKERS > 1:
+    # worker pool - each worker is responsible for a single root value
+    workers = Pool(processes=NR_WORKERS)
+    try:
+        results = []
+        for comp in comp_pairs:
+            r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, comp_pairs),
+                                    callback=check_result)
+            results.append(r)
+        for r in results:
+            r.wait()
+    except (KeyboardInterrupt, SystemExit):
+        print("except: attempting to close pool")
+        workers.terminate()
+        print("pool successfully closed")
+
+    finally:
+        print("finally: attempting to close pool")
+        workers.terminate()
+        print("pool successfully closed")
+else:
+    for comp in comp_pairs:
+        working_alg = check_alg_for_root_comp(comp, words_with_max_suffix, comp_pairs)
+        if working_alg:
+            break
+
+print("Runtime: {:.2f}s".format(timeit.default_timer() - start))
+
+if working_alg:
+    print("Algorithm probably succeded")
+    # Verify (fill in correct r-values in tree on the way in order to pretty print it)
+    result_map = {}
+    for word, r in words_with_max_suffix:
+        result = MY_UTIL.compute_path_for_word(working_alg, word)
+        working_alg[result[-1]].obj = r
+
+        stringed_result = str(result)
+        stringed_path = ""
+        for node_id in result:
+            stringed_path += str(node_id)
+            if node_id != result[-1]:
+                stringed_path += " [{}]".format(working_alg[node_id].obj)
+                stringed_path += " -> "
+        if stringed_result in result_map and result_map[stringed_result][1] != r:
+            # Found witness path
+            print("Not verified!")
+            break
+
+        elif word == words_with_max_suffix[-1][0]:
+            print("Verified")
+            print("Algorithm SUCCEEDED")
+
+            filled_leafs = 0
+            for i, node in enumerate(working_alg):
+                if MY_UTIL.is_leaf(i) and node.obj != "":
+                    filled_leafs += 1
+            print("Filled leafs: {}/{}".format(filled_leafs, 3 ** M))
+            print("Tree Structure: ")
+            for pre, fill, node in RenderTree(working_alg[0]):
+                print("%s%s" % (pre, node.obj))
+            ts = str(datetime.datetime.now().timestamp() * 1000)
+            DotExporter(working_alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                "{}/{}.png".format(MY_UTIL.base_dir, ts))
+            DotExporter(working_alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
+                "{}/{}.txt".format(MY_UTIL.base_dir, ts))
+
+        result_map[stringed_result] = (word, r)
+else:
+    print("No possible algorithm exists for finding the max. suffix with N={}, M={}".format(N, M))
