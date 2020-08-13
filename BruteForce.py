@@ -250,7 +250,7 @@ def generate_algorithm(root_value):
 
                 for pair in comp_pairs:
                     if pair not in parent_values:
-                        alg.append(Node(current_index, obj=pair, parent=parent))
+                        alg.append(Node(current_index, obj=pair, checked=[], parent=parent))
                         current_index += 1
                         break
     return alg
@@ -316,6 +316,7 @@ def check_alg_for_root_comp(root_comp, words_with_max_suffix, comps):
     result = check_alg(alg, 0, words_with_max_suffix, comps, [])
     return result
 
+
 # TODO: describe
 def check_alg(alg, index, words, comps, prev_comps):
     # Divide and Conquer
@@ -366,8 +367,8 @@ def check_alg(alg, index, words, comps, prev_comps):
                 save_thread.join()
                 return
         else:
-            # not at root - here we want to check all possible values for the node, so we loop over comps
-            for c_new in comps:
+            # not at root - here we want to check all possible values for the node (that have not yet been checked)
+            for c_new in [c for c in comps if c not in alg[index].checked]:
                 if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
                     print("[Increasing] Increasing index {} from {} to {}".format(index, alg[index].obj, c_new))
 
@@ -394,7 +395,6 @@ def check_alg(alg, index, words, comps, prev_comps):
 
                 # remove current comparison and transitively clear comparisons
                 # from further consideration
-
                 comps_smaller_new = copy.deepcopy(comps)
                 comps_smaller_new.remove(c_new)
                 for comp in [t for t in transitive_smaller if t in comps]:
@@ -414,11 +414,15 @@ def check_alg(alg, index, words, comps, prev_comps):
                 if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps) and
                         check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps) and
                         check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps)):
+                    alg[index].checked = []
                     return True
-            return False
+                else:
+                    alg[index].checked.append(c_new)
+        alg[index].checked = []
+        return False
 
     else:
-        for c_new in comps:
+        for c_new in [c for c in comps if c not in alg[index].checked]:
             result_map = {}
             alg[index].obj = c_new
 
@@ -433,14 +437,16 @@ def check_alg(alg, index, words, comps, prev_comps):
                         stringed_path += " [{}]".format(alg[node_id].obj)
                         stringed_path += " -> "
                 if stringed_result in result_map and result_map[stringed_result][1] != r:
+                    alg[index].checked.append(c_new)
                     break
 
                 elif word == words[-1][0]:
+                    alg[index].checked = []
                     return True
 
                 else:
                     result_map[stringed_result] = (word, r)
-
+        alg[index].checked = []
         return False
 
 
