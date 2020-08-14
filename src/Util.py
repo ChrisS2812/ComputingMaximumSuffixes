@@ -183,19 +183,19 @@ class Util:
             case = -1
             if cc1 == pc1:
                 # (i,j) and (i,k)
-                trans_pair = (cc2, pc2)  # (j,k)
+                trans_pair = [cc2, pc2]  # (j,k)
                 case = 1
             elif cc2 == pc2:
                 # (i,j) and (k,j)
-                trans_pair = (cc1, pc1)  # (i,k)
+                trans_pair = [cc1, pc1]  # (i,k)
                 case = 2
             elif cc1 == pc2:
                 # (i,j) and (k,i):
-                trans_pair = (cc2, pc1)  # (j,k)
+                trans_pair = [cc2, pc1]  # (j,k)
                 case = 3
             elif cc2 == pc1:
                 # (i,j) and (j,k):
-                trans_pair = (cc1, pc2)  # (i,k)
+                trans_pair = [cc1, pc2]  # (i,k)
                 case = 4
 
             if trans_pair != -1:
@@ -300,7 +300,5 @@ class Util:
             root = JsonImporter().read(f)
 
         alg = [node for node in LevelOrderIter(root)]
-        for node in alg:
-            node.obj = tuple(node.obj)
 
         return alg

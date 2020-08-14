@@ -24,7 +24,7 @@ MY_UTIL = Util(N, M)
 comp_pairs = []
 for i in range(N):
     for j in range(i + 1, N):
-        comp_pairs.append((i, j))
+        comp_pairs.append([i, j])
 print(comp_pairs)
 
 
@@ -113,7 +113,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
             # conduct a comparison between the a_i and a_{i+1} which yields  a_i < a_{i+1} we can subsequently only
             # investigate the subword a_{i+1} a_{i+2} ... a_n
-            if current_comp == (first_rel_char, first_rel_char + 1):
+            if current_comp == [first_rel_char, first_rel_char + 1]:
                 comps_new_smaller = [c for c in comps_new_smaller if c[0] != first_rel_char]
 
             if (check_alg(alg, index * 3 + 1, smaller_list, comps_new_smaller, [(current_comp, '<')],
@@ -129,7 +129,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # not at root - here we want to check all possible values for the node (that have not yet been checked)
             for c_new in [c for c in comps if c not in alg[index].checked]:
                 if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
-                    print("[{}] Increasing index {} from {} to {}".format(alg[0].obj, index, alg[index].obj, c_new))
+                    print("{} Increasing index {} from {} to {}".format(alg[0].obj, index, alg[index].obj, c_new))
 
                 alg[index].obj = c_new
 
