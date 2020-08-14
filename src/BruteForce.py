@@ -116,7 +116,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
 def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
-    if not MY_UTIL.is_last_comp(index):
+    if not MY_UTIL.is_leaf(index):
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in [c for c in comps if c not in alg[index].checked]:
             if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
@@ -189,33 +189,10 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
 
     else:
         # Conquer
-        for c_new in [c for c in comps if c not in alg[index].checked]:
-            res_map = {}
-            alg[index].obj = c_new
-
-            for curr_word, ground_truth in words:
-                res = MY_UTIL.compute_path_for_word(alg, curr_word)
-
-                result_map_key = str(res)
-                result_buffer = ""
-                for node_buffer in res:
-                    result_buffer += str(node_buffer)
-                    if node_buffer != res[-1]:
-                        result_buffer += " [{}]".format(alg[node_buffer].obj)
-                        result_buffer += " -> "
-                if result_map_key in res_map and res_map[result_map_key][1] != ground_truth:
-                    alg[index].checked.append(c_new)
-                    break
-
-                elif curr_word == words[-1][0]:
-                    alg[index].checked = []
-                    return True
-
-                else:
-                    res_map[result_map_key] = (curr_word, ground_truth)
-        alg[index].checked = []
-        return False
-
+        if len(set([wwms[1] for wwms in words])) > 1:
+            #Found two distinct r-values here -> current decision tree can not be legal
+            return False
+        return True
 
 # Helping function that stop the workers early when a solution was found
 working_alg = []
