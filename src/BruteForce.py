@@ -7,6 +7,7 @@ import copy
 import datetime
 import timeit
 from multiprocessing import Pool
+from time import gmtime, strftime
 
 from anytree import Node, RenderTree
 from anytree.exporter import DotExporter
@@ -74,7 +75,8 @@ def check_alg_for_root_comp(root_comp, words, comps):
         alg = generate_algorithm(root_comp)
 
     if DEBUG:
-        print("Starting checking of algorithms with root value {}".format(root_comp))
+        print("({}) Starting checking of algorithms with root value {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                                                               root_comp))
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
     i1, i2 = root_comp
@@ -120,7 +122,10 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in [c for c in comps if c not in alg[index].checked]:
             if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
-                print("{} Increasing index {} from {} to {}".format(alg[0].obj, index, alg[index].obj, c_new))
+                print("({}, {}) Increasing index {} from {} to {}".format(alg[0].obj,
+                                                                          strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                                                          index,
+                                                                          alg[index].obj, c_new))
 
             alg[index].obj = c_new
 
@@ -190,9 +195,10 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
     else:
         # Conquer
         if len(set([wwms[1] for wwms in words])) > 1:
-            #Found two distinct r-values here -> current decision tree can not be legal
+            # Found two distinct r-values here -> current decision tree can not be legal
             return False
         return True
+
 
 # Helping function that stop the workers early when a solution was found
 working_alg = []
