@@ -6,9 +6,13 @@ from anytree import Node
 from anytree.exporter import DotExporter
 from tabulate import tabulate
 
-N = 9
+from src.Util import Util
+
+N = 5
+MY_UTIL = Util(N, -1)
 
 nr_comparisons_count = {}
+difficult_words = []
 
 all_words = itertools.product(range(N), repeat=N)
 nr_words = N ** N
@@ -70,6 +74,8 @@ for i, word in enumerate(all_words):
         nr_comparisons_count[count] = 1
     else:
         nr_comparisons_count[count] += 1
+    if (N in [4, 5] and count == N) or (N != 8 and count == N + 1) or (N == 8 and count == 10):
+        difficult_words.append(word)
 
 
 def get_edge_label(_, child):
@@ -79,6 +85,7 @@ def get_edge_label(_, child):
         return 'label="="'
     else:
         return 'label=">"'
+
 
 if N < 7:
     DotExporter(decision_tree[0],
@@ -92,8 +99,14 @@ result_list = []
 for comp_val in occ_nr_comparisons:
     result_list.append([comp_val, nr_comparisons_count[comp_val], nr_comparisons_count[comp_val] / nr_words * 100])
 
+difficult_words_readable = list(map(lambda x: ''.join(map(str, x)), difficult_words))
 print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'))
+print("\nDifficult words:")
+for w in difficult_words_readable:
+    print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)))
 
 with open(txt_filepath, 'w') as f:
     print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'), file=f)
-
+    print("\nDifficult words:", file=f)
+    for w in difficult_words_readable:
+        print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)), file=f)

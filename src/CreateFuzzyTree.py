@@ -6,15 +6,19 @@ from anytree import Node
 from anytree.exporter import DotExporter
 from tabulate import tabulate
 
-N = 9
+from src.Util import Util
+
+N = 6
+MY_UTIL = Util(N, -1)
 
 nr_comparisons_count = {}
+difficult_words = []
 
 all_words = itertools.product(range(N), repeat=N)
 nr_words = N ** N
 
 decision_tree = [Node(0, obj=(0, 1))]
-max_height = int((3 * N / 2) - 2)
+max_height = int((4 * N / 3) - 5/3)
 
 base_dir = "Fuzzy"
 Path(base_dir).mkdir(parents=True, exist_ok=True)
@@ -96,6 +100,8 @@ for i, word in enumerate(all_words):
         nr_comparisons_count[count] = 1
     else:
         nr_comparisons_count[count] += 1
+    if (N != 8 and count == N) or (N == 8 and count == N + 1):
+        difficult_words.append(word)
 
 
 def get_edge_label(_, child):
@@ -119,7 +125,14 @@ result_list = []
 for comp_val in occ_nr_comparisons:
     result_list.append([comp_val, nr_comparisons_count[comp_val], nr_comparisons_count[comp_val] / nr_words * 100])
 
+difficult_words_readable = list(map(lambda x: ''.join(map(str, x)), difficult_words))
 print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'))
+print("\nDifficult words:")
+for w in difficult_words_readable:
+    print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)))
 
 with open(txt_filepath, 'w') as f:
     print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'), file=f)
+    print("\nDifficult words:", file=f)
+    for w in difficult_words_readable:
+        print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)), file=f)
