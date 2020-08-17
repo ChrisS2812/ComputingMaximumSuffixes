@@ -152,6 +152,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # from further consideration
             comps_smaller_new = copy.deepcopy(comps)
             prev_comps_smaller_new = copy.deepcopy(prev_comps)
+            prev_comps_smaller_new.append((c_new, '<'))
             comps_smaller_new.remove(c_new)
             for c, res in [t for t in transitive_smaller if t[0] in comps]:
                 comps_smaller_new.remove(c)
@@ -160,6 +161,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             comps_equal_new = copy.deepcopy(comps)
             comps_equal_new.remove(c_new)
             prev_comps_equal_new = copy.deepcopy(prev_comps)
+            prev_comps_equal_new.append((c_new, '='))
             for c, res in [t for t in transitive_equal if t[0] in comps]:
                 comps_equal_new.remove(c)
                 prev_comps_equal_new.append((c, res))
@@ -167,6 +169,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             comps_bigger_new = copy.deepcopy(comps)
             comps_bigger_new.remove(c_new)
             prev_comps_bigger_new = copy.deepcopy(prev_comps)
+            prev_comps_bigger_new.append((c_new, '>'))
             for c, res in [t for t in transitive_bigger if t[0] in comps]:
                 comps_bigger_new.remove(c)
                 prev_comps_bigger_new.append((c, res))
