@@ -118,6 +118,9 @@ def check_alg_for_root_comp(root_comp, words, comps):
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
 def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
+    if len(words) < 1:
+        return True
+
     if not MY_UTIL.is_leaf(index):
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in [c for c in comps if c not in alg[index].checked]:
