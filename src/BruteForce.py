@@ -190,7 +190,6 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
                     check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps_bigger_new,
                               first_rel_char)):
                 alg[index].checked = []
-                MY_UTIL.save_current_graph(alg[0])
                 return True
             else:
                 alg[index].checked.append(c_new)

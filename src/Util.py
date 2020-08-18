@@ -18,7 +18,7 @@ class Util:
         Path(self.base_dir).mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir = os.path.join(self.base_dir, 'checkpoint')
         Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
-        self.SAVE_INTERVAL = 1800  # 30 minutes
+        self.SAVE_INTERVAL = 3600  # 1 hour
         self.LAST_SAVE = int(time.time())
 
     # Duval's algorithm for finding the index of maximum suffix
