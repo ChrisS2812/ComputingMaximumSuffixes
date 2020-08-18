@@ -74,7 +74,7 @@ for i, word in enumerate(all_words):
         nr_comparisons_count[count] = 1
     else:
         nr_comparisons_count[count] += 1
-    if (N in [4, 5] and count == N) or (N != 8 and count == N + 1) or (N == 8 and count == 10):
+    if (N in [4, 5] and count == N) or (N < 8 and count == N + 1) or (N == 8 and count == 10):
         difficult_words.append(word)
 
 
