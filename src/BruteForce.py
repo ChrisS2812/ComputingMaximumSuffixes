@@ -182,15 +182,33 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n
             # and we conduct a comparison between the a_i and a_{i+1} which yields  a_i < a_{i+1} we can
             # subsequently only investigate the subword a_{i+1} a_{i+2} ... a_n
-            if c_new == (first_rel_char, first_rel_char + 1):
-                comps_smaller_new = [c for c in comps_smaller_new if c[0] != first_rel_char]
+            first_rel_char1 = first_rel_char
+            while True:
+                if ([first_rel_char1, first_rel_char1+1], '<') in prev_comps_smaller_new:
+                    first_rel_char1 += 1
+                else:
+                    break
+
+            first_rel_char2 = first_rel_char
+            while True:
+                if ([first_rel_char2, first_rel_char2+1], '<') in prev_comps_equal_new:
+                    first_rel_char2 += 1
+                else:
+                    break
+
+            first_rel_char3 = first_rel_char
+            while True:
+                if ([first_rel_char3, first_rel_char3+1], '<') in prev_comps_bigger_new:
+                    first_rel_char3 += 1
+                else:
+                    break
 
             if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps_smaller_new,
-                          first_rel_char + 1) and
+                          first_rel_char1 + 1) and
                     check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps_equal_new,
-                              first_rel_char) and
+                              first_rel_char2) and
                     check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps_bigger_new,
-                              first_rel_char)):
+                              first_rel_char3)):
                 return True
             else:
                 #reset checked list of all vertices below the current one as we are updating this ones comparison value
