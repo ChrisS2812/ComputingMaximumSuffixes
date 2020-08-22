@@ -328,7 +328,7 @@ class Util:
                 break
 
             elif word == words_with_max_suffix[-1][0]:
-                print("Found Algorithm with root value {} exists for n={}, m={}".format(alg[0], self.n, self.m))
+                print("Found Algorithm with root value {} exists for n={}, m={}".format(alg[0].obj, self.n, self.m))
 
                 filled_leafs = 0
                 for i, node in enumerate(alg):
