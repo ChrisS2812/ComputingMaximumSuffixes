@@ -308,7 +308,7 @@ class Util:
             return
         words_with_max_suffix = self.generate_all_word_with_max_suffix()
         comp = alg[0].obj
-        print("Algorithm with root value {} probably succeded".format(comp))
+
         # Verify (fill in correct r-values in tree on the way in order to pretty print it)
         result_map = {}
         for word, r in words_with_max_suffix:
@@ -328,17 +328,13 @@ class Util:
                 break
 
             elif word == words_with_max_suffix[-1][0]:
-                print("Verified")
-                print("Algorithm with root value {} SUCCEEDED".format(comp))
+                print("Found Algorithm with root value {} exists for n={}, m={}".format(alg[0], self.n, self.m))
 
                 filled_leafs = 0
                 for i, node in enumerate(alg):
                     if self.is_leaf(i) and node.obj != "":
                         filled_leafs += 1
-                print("Filled leafs: {}/{}".format(filled_leafs, 3 ** self.m))
-                print("Tree Structure: ")
-                for pre, fill, node in RenderTree(alg[0]):
-                    print("%s%s" % (pre, node.obj))
+
                 DotExporter(alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
                     "{}/{}.png".format(self.base_dir, comp))
                 DotExporter(alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(

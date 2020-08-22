@@ -4,6 +4,7 @@
 # This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
 # comparisons
 import copy
+import time
 import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
@@ -234,6 +235,7 @@ start = 0  # measure running time
 
 working_algs = []
 
+runtime_start = time.time()
 if NR_WORKERS > 1:
     # worker pool - each worker is responsible for a single root value
     workers = Pool(processes=NR_WORKERS)
@@ -260,5 +262,7 @@ else:
     for comp in comp_pairs:
         working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, comp_pairs))
 
-for working_alg in working_algs:
-    MY_UTIL.save_current_graph(working_alg)
+print("Runtime: {}s".format(time.time() - runtime_start))
+
+for i, working_alg in enumerate(working_algs):
+    MY_UTIL.save_algorithm(working_alg)
