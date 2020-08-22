@@ -60,7 +60,7 @@ def generate_algorithm(root_value):
 
                 for pair in comp_pairs:
                     if pair not in parent_values:
-                        alg.append(Node(current_index, obj=pair, checked=[], parent=parent))
+                        alg.append(Node(current_index, obj=pair, last_checked=0, parent=parent))
                         current_index += 1
                         break
     return alg
@@ -129,7 +129,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
 
     if not MY_UTIL.is_leaf(index):
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
-        for c_new in [c for c in comps if c not in alg[index].checked]:
+        for c_new in comps[alg[index].last_checked:]:
             if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
                 print("({}, {}) Increasing index {} from {} to {}".format(alg[0].obj,
                                                                           strftime("%Y-%m-%d %H:%M:%S", gmtime()),
@@ -218,12 +218,12 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
                               first_rel_char3)):
                 return True
             else:
-                #reset checked list of all vertices below the current one as we are updating this ones comparison value
+                #reset last_checked of all vertices below the current one as we are updating this ones comparison value
                 for node in PreOrderIter(alg[index]):
                     #do not change checked value at root
                     if node.name != index:
-                        node.checked = []
-                alg[index].checked.append(c_new)
+                        node.last_checked = 0
+                alg[index].last_checked += 1
                 MY_UTIL.save_current_graph(alg[0])
         return False
 
