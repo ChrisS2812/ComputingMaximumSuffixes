@@ -8,22 +8,22 @@ from tabulate import tabulate
 
 from src.Util import Util
 
-N = 6
-MY_UTIL = Util(N, -1)
+n = 9
+MY_UTIL = Util(n, -1)
 
 nr_comparisons_count = {}
 difficult_words = []
 
-all_words = itertools.product(range(N), repeat=N)
-nr_words = N ** N
+all_words = itertools.product(range(n), repeat=n)
+nr_words = n ** n
 
 decision_tree = [Node(0, obj=(0, 1))]
-max_height = int((4 * N / 3) - 5/3)
+max_height = int((4 * n / 3) - 5 / 3)
 
 base_dir = "Fuzzy"
 Path(base_dir).mkdir(parents=True, exist_ok=True)
-pic_filename = "{}.png".format(N)
-txt_filename = "{}.txt".format(N)
+pic_filename = "{}.png".format(n)
+txt_filename = "{}.txt".format(n)
 pic_filepath = os.path.join(base_dir, pic_filename)
 txt_filepath = os.path.join(base_dir, txt_filename)
 
@@ -49,7 +49,7 @@ for i, word in enumerate(all_words):
     i = 0
     M = {2: 2}
 
-    while s < N:
+    while s < n:
         count += 1
         current_comp = (s - m, s)
         decision_tree[current_index].obj = current_comp
@@ -84,7 +84,7 @@ for i, word in enumerate(all_words):
                         M[i] = M[i + 1]
                     else:
                         M[i] = i
-    if f > 0 and r < (N - 1):
+    if f > 0 and r < (n - 1):
         count += 1
         decision_tree[current_index].obj = (r, r + 1)
         if word[r] < word[r + 1]:
@@ -100,7 +100,7 @@ for i, word in enumerate(all_words):
         nr_comparisons_count[count] = 1
     else:
         nr_comparisons_count[count] += 1
-    if (N < 8 and count == N) or (N == 8 and count == N + 1):
+    if (n < 8 and count == n) or (n == 8 and count == n + 1):
         difficult_words.append(word)
 
 
@@ -113,7 +113,7 @@ def get_edge_label(_, child):
         return 'label=">"'
 
 
-if N < 7:
+if n < 7:
     DotExporter(decision_tree[0],
                 nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj),
                 edgeattrfunc=get_edge_label).to_picture(pic_filepath)

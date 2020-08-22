@@ -4,27 +4,25 @@
 # This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
 # comparisons
 import copy
-import datetime
 import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
 
-from anytree import Node, RenderTree
-from anytree.exporter import DotExporter
+from anytree import Node
 
 from src.Util import Util
 
-N = 6
-M = 5
+n = 5
+m = 5
 DEBUG = True
 ONLY_HIGHEST_DEBUG = True
-NR_WORKERS = 1
-MY_UTIL = Util(N, M)
+NR_WORKERS = 8
+MY_UTIL = Util(n, m)
 
 # Compute all possible pairs of indices that can be compared
 comp_pairs = []
-for i in range(N):
-    for j in range(i + 1, N):
+for i in range(n):
+    for j in range(i + 1, n):
         comp_pairs.append([i, j])
 print(comp_pairs)
 
@@ -37,15 +35,15 @@ print(comp_pairs)
 def generate_algorithm(root_value):
     alg = []
     current_index = 0
-    for ga_i in range(M + 1):
+    for ga_i in range(m + 1):
         if ga_i == 0:
             # Root Node
             root = Node(current_index, obj=root_value)
             alg.append(root)
             current_index += 1
-        elif ga_i == M:
+        elif ga_i == m:
             # Leaf Nodes
-            for ga_j in range(3 ** M):
+            for ga_j in range(3 ** m):
                 parent = alg[(current_index - 1) // 3]
                 alg.append(Node(current_index, obj="", parent=parent))
                 current_index += 1
@@ -204,22 +202,12 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             return False
         return True
 
-
-# Helping function that stop the workers early when a solution was found
-working_alg = []
-
-
-def check_result(return_alg):
-    global working_alg
-    if not working_alg and return_alg is not None:
-        working_alg = return_alg
-        workers.terminate()
-
-
 words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
 print("Need to find Algorithm for {} interesting words".format(len(words_with_max_suffix)))
 
 start = 0  # measure running time
+
+working_algs = []
 
 if NR_WORKERS > 1:
     # worker pool - each worker is responsible for a single root value
@@ -229,7 +217,7 @@ if NR_WORKERS > 1:
         for comp in comp_pairs:
             start = timeit.default_timer()  # measure running time
             r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, comp_pairs),
-                                    callback=check_result)
+                                    callback=MY_UTIL.save_algorithm)
             results.append(r)
         for r in results:
             r.wait()
@@ -242,53 +230,10 @@ if NR_WORKERS > 1:
         print("finally: attempting to close pool")
         workers.terminate()
         print("pool successfully closed")
+
 else:
     for comp in comp_pairs:
-        start = timeit.default_timer()  # measure running time
-        working_alg = check_alg_for_root_comp(comp, words_with_max_suffix, comp_pairs)
-        if working_alg:
-            break
+        working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, comp_pairs))
 
-print("Runtime: {:.2f}s".format(timeit.default_timer() - start))
-
-if working_alg:
-    print("Algorithm probably succeded")
-    # Verify (fill in correct r-values in tree on the way in order to pretty print it)
-    result_map = {}
-    for word, r in words_with_max_suffix:
-        result = MY_UTIL.compute_path_for_word(working_alg, word)
-        working_alg[result[-1]].obj = r
-
-        stringed_result = str(result)
-        stringed_path = ""
-        for node_id in result:
-            stringed_path += str(node_id)
-            if node_id != result[-1]:
-                stringed_path += " [{}]".format(working_alg[node_id].obj)
-                stringed_path += " -> "
-        if stringed_result in result_map and result_map[stringed_result][1] != r:
-            # Found witness path
-            print("Not verified!")
-            break
-
-        elif word == words_with_max_suffix[-1][0]:
-            print("Verified")
-            print("Algorithm SUCCEEDED")
-
-            filled_leafs = 0
-            for i, node in enumerate(working_alg):
-                if MY_UTIL.is_leaf(i) and node.obj != "":
-                    filled_leafs += 1
-            print("Filled leafs: {}/{}".format(filled_leafs, 3 ** M))
-            print("Tree Structure: ")
-            for pre, fill, node in RenderTree(working_alg[0]):
-                print("%s%s" % (pre, node.obj))
-            ts = str(datetime.datetime.now().timestamp() * 1000)
-            DotExporter(working_alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
-                "{}/{}.png".format(MY_UTIL.base_dir, ts))
-            DotExporter(working_alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
-                "{}/{}.txt".format(MY_UTIL.base_dir, ts))
-
-        result_map[stringed_result] = (word, r)
-else:
-    print("No possible algorithm exists for finding the max. suffix with N={}, M={}".format(N, M))
+for working_alg in working_algs:
+    MY_UTIL.save_current_graph(working_alg)

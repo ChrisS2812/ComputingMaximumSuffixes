@@ -5,15 +5,15 @@ from os import listdir
 from os.path import isfile
 from pathlib import Path
 
-from anytree import LevelOrderIter
-from anytree.exporter import JsonExporter
+from anytree import LevelOrderIter, RenderTree
+from anytree.exporter import JsonExporter, DotExporter
 from anytree.importer import JsonImporter
 
 
 class Util:
     def __init__(self, n, m):
-        self.N = n
-        self.M = m
+        self.n = n
+        self.m = m
         self.base_dir = "N{}M{}".format(n, m)
         Path(self.base_dir).mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir = os.path.join(self.base_dir, 'checkpoint')
@@ -51,15 +51,15 @@ class Util:
     # Create all possible words for a given N
     def generate_all_word_with_max_suffix(self):
         # List of all words
-        all_words = list(itertools.product(range(self.N), repeat=self.N))
+        all_words = list(itertools.product(range(self.n), repeat=self.n))
 
         # Reduce this to list of relevant words by defining two words as equivalent if all its pairwise comparisons have
         # the same result
         comp_result_2_word = {}
         for w in all_words:
             comparisons = ""
-            for i in range(self.N):
-                for j in range(i + 1, self.N):
+            for i in range(self.n):
+                for j in range(i + 1, self.n):
                     c1 = w[i]
                     c2 = w[j]
                     if c1 < c2:
@@ -138,11 +138,11 @@ class Util:
 
     # Helping function that decides whether a node at a given index is a leaf or not.
     def is_leaf(self, index):
-        if self.M < 1:
+        if self.m < 1:
             return True
 
         last_non_leaf_index = -1
-        for i in range(0, self.M):
+        for i in range(0, self.m):
             last_non_leaf_index += 3 ** i
         if index <= last_non_leaf_index:
             return False
@@ -151,9 +151,9 @@ class Util:
 
     # Helping function that decides whether a node at a given index represents the last comparison
     def is_last_comp(self, index):
-        if self.M < 1:
+        if self.m < 1:
             return False
-        if self.M == 2:
+        if self.m == 2:
             if index == 0:
                 return True
             else:
@@ -163,7 +163,7 @@ class Util:
             return False
 
         last_non_last_comp_index = -1
-        for i in range(0, self.M - 1):
+        for i in range(0, self.m - 1):
             last_non_last_comp_index += 3 ** i
 
         if index > last_non_last_comp_index:
@@ -260,7 +260,7 @@ class Util:
                 new_result.append(res)
                 continue
             else:
-                new_tuple = (res[0][1], res[0][0])
+                new_tuple = [res[0][1], res[0][0]]
                 if res[1] == '=':
                     new_result.append((new_tuple, '='))
                 elif res[1] == '<':
@@ -302,3 +302,46 @@ class Util:
         alg = [node for node in LevelOrderIter(root)]
 
         return alg
+
+    def save_algorithm(self, alg):
+        if alg is None:
+            return
+        words_with_max_suffix = self.generate_all_word_with_max_suffix()
+        comp = alg[0].obj
+        print("Algorithm with root value {} probably succeded".format(comp))
+        # Verify (fill in correct r-values in tree on the way in order to pretty print it)
+        result_map = {}
+        for word, r in words_with_max_suffix:
+            result = self.compute_path_for_word(alg, word)
+            alg[result[-1]].obj = r
+
+            stringed_result = str(result)
+            stringed_path = ""
+            for node_id in result:
+                stringed_path += str(node_id)
+                if node_id != result[-1]:
+                    stringed_path += " [{}]".format(alg[node_id].obj)
+                    stringed_path += " -> "
+            if stringed_result in result_map and result_map[stringed_result][1] != r:
+                # Found witness path
+                print("Not verified!")
+                break
+
+            elif word == words_with_max_suffix[-1][0]:
+                print("Verified")
+                print("Algorithm with root value {} SUCCEEDED".format(comp))
+
+                filled_leafs = 0
+                for i, node in enumerate(alg):
+                    if self.is_leaf(i) and node.obj != "":
+                        filled_leafs += 1
+                print("Filled leafs: {}/{}".format(filled_leafs, 3 ** self.m))
+                print("Tree Structure: ")
+                for pre, fill, node in RenderTree(alg[0]):
+                    print("%s%s" % (pre, node.obj))
+                DotExporter(alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                    "{}/{}.png".format(self.base_dir, comp))
+                DotExporter(alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
+                    "{}/{}.txt".format(self.base_dir, comp))
+
+            result_map[stringed_result] = (word, r)

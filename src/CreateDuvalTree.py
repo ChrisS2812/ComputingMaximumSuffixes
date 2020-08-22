@@ -8,22 +8,23 @@ from tabulate import tabulate
 
 from src.Util import Util
 
-N = 5
-MY_UTIL = Util(N, -1)
+n = 5
+MY_UTIL = Util(n, -1)
 
 nr_comparisons_count = {}
+nr_known_deps_count = {}
 difficult_words = []
 
-all_words = itertools.product(range(N), repeat=N)
-nr_words = N ** N
+all_words = itertools.product(range(n), repeat=n)
+nr_words = n ** n
 
 decision_tree = [Node(0, obj=(0, 1))]
-max_height = int((3 * N / 2) - 2)
+max_height = int((3 * n / 2) - 2)
 
 base_dir = "Duval"
 Path(base_dir).mkdir(parents=True, exist_ok=True)
-pic_filename = "{}.png".format(N)
-txt_filename = "{}.txt".format(N)
+pic_filename = "{}.png".format(n)
+txt_filename = "{}.txt".format(n)
 pic_filepath = os.path.join(base_dir, pic_filename)
 txt_filepath = os.path.join(base_dir, txt_filename)
 
@@ -36,6 +37,7 @@ for depth in range(1, max_height + 1):
     start_index += 3 ** depth
 
 for i, word in enumerate(all_words):
+    known_deps = []
     if i % 100000 == 0:
         print("{} %".format(i / nr_words * 100))
     current_index = 0
@@ -44,21 +46,27 @@ for i, word in enumerate(all_words):
     s = 1
     m = 1
     M = {1: 1}
-    while s < N:
+    while s < n:
         count += 1
-        current_comp = (s - m, s)
+        current_comp = [s - m, s]
         decision_tree[current_index].obj = current_comp
 
         if word[s] < word[s - m]:
+            known_deps.append((current_comp, '<'))
+            known_deps.extend(MY_UTIL.compute_transitive_dependencies(known_deps, (current_comp, '<')))
             current_index = current_index * 3 + 3
             s = s + 1
             m = s - r
             M[m] = m
         elif word[s] == word[s - m]:
+            known_deps.append((current_comp, '='))
+            known_deps.extend(MY_UTIL.compute_transitive_dependencies(known_deps, (current_comp, '=')))
             current_index = current_index * 3 + 2
             s = s + 1
             M[s - r] = m
         else:
+            known_deps.append((current_comp, '>'))
+            known_deps.extend(MY_UTIL.compute_transitive_dependencies(known_deps, (current_comp, '>')))
             current_index = current_index * 3 + 1
             d = (s - r) % m
             if d > 0:
@@ -70,11 +78,21 @@ for i, word in enumerate(all_words):
                 m = 1
 
     decision_tree[current_index].obj = r
+    cleaned_known_deps1 = set(map(lambda x: (tuple(x[0]), x[1]), known_deps))
+    cleaned_known_deps2 = filter(lambda x: x[0][0] != x[0][1], cleaned_known_deps1)
+    nr_known_deps = len(set(cleaned_known_deps2))
+
+    if nr_known_deps not in nr_known_deps_count:
+        nr_known_deps_count[nr_known_deps] = 1
+    else:
+        nr_known_deps_count[nr_known_deps] += 1
+
     if count not in nr_comparisons_count:
         nr_comparisons_count[count] = 1
     else:
         nr_comparisons_count[count] += 1
-    if (N in [4, 5] and count == N) or (N < 8 and count == N + 1) or (N == 8 and count == 10):
+
+    if (n in [4, 5] and count == n) or (n < 8 and count == n + 1) or (n == 8 and count == 10):
         difficult_words.append(word)
 
 
@@ -87,7 +105,7 @@ def get_edge_label(_, child):
         return 'label=">"'
 
 
-if N < 7:
+if n < 7:
     DotExporter(decision_tree[0],
                 nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj),
                 edgeattrfunc=get_edge_label).to_picture(pic_filepath)
@@ -95,18 +113,28 @@ if N < 7:
 occ_nr_comparisons = list(nr_comparisons_count.keys())
 occ_nr_comparisons.sort()
 
+nr_known_deps_list = list(nr_known_deps_count.keys())
+nr_known_deps_list.sort()
+
+
 result_list = []
 for comp_val in occ_nr_comparisons:
     result_list.append([comp_val, nr_comparisons_count[comp_val], nr_comparisons_count[comp_val] / nr_words * 100])
 
+nr_known_comps_list = []
+for nr_val in nr_known_deps_list:
+    nr_known_comps_list.append([nr_val, nr_known_deps_count[nr_val], nr_known_deps_count[nr_val] / nr_words * 100])
+
 difficult_words_readable = list(map(lambda x: ''.join(map(str, x)), difficult_words))
+
 print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'))
+print(tabulate(nr_known_comps_list, headers=['#Known Comps', '#Words', 'Percentage'], tablefmt='orgtbl'))
 print("\nDifficult words:")
 for w in difficult_words_readable:
     print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)))
 
 with open(txt_filepath, 'w') as f:
     print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'), file=f)
-    print("\nDifficult words:", file=f)
+    print(tabulate(nr_known_comps_list, headers=['#Known Comps.', '#Words', 'Percentage'], tablefmt='orgtbl'), file=f)
     for w in difficult_words_readable:
         print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)), file=f)
