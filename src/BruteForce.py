@@ -8,7 +8,7 @@ import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
 
-from anytree import Node
+from anytree import Node, PreOrderIter
 
 from src.Util import Util
 
@@ -191,12 +191,15 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
                               first_rel_char) and
                     check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps_bigger_new,
                               first_rel_char)):
-                alg[index].checked = []
                 return True
             else:
+                #reset checked list of all vertices below the current one as we are updating this ones comparison value
+                for node in PreOrderIter(alg[index]):
+                    #do not change checked value at root
+                    if node.name != index:
+                        node.checked = []
                 alg[index].checked.append(c_new)
                 MY_UTIL.save_current_graph(alg[0])
-        alg[index].checked = []
         return False
 
     else:
