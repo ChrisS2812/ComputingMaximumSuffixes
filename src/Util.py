@@ -242,9 +242,9 @@ class Util:
                 return comps, first_rel_char
 
     def append_known_decision_tree(self, current_node, first_rel_char, subword_length_left):
-        LOAD_UTIL = Util(subword_length_left, Util.knownTn[subword_length_left])
+        load_util = Util(subword_length_left, Util.knownTn[subword_length_left])
         for root_comp in self.comp_pairs:
-            subtree = LOAD_UTIL.load_working_tree(root_comp)
+            subtree = load_util.load_working_tree(root_comp)
             if subtree is not None:
                 # update subtree to match indices of current word and remove deprecated r-values
                 for node in PreOrderIter(subtree):
@@ -282,6 +282,10 @@ class Util:
                 JsonExporter(indent=2).write(root, f)
             self.LAST_SAVE = ts
 
+    def is_already_finished(self, root_comp):
+        return '{}_final.json'.format(root_comp) in listdir(self.checkpoint_dir)
+
+
     # Helping function that loads current state of algorithm (i.e. the current tree)
     # from a file in json format
     def load_alg_from_checkpoint(self, root_comp):
@@ -291,11 +295,8 @@ class Util:
         if not chkpnt_files:
             return None
 
-        most_recent_checkpoint = '{}_final'.format(root_comp)
-
-        if most_recent_checkpoint not in chkpnt_files:
-            chkpnt_files.sort()
-            most_recent_checkpoint = chkpnt_files[-1]
+        chkpnt_files.sort()
+        most_recent_checkpoint = chkpnt_files[-1]
 
         path_to_most_recent_checkpoint = os.path.join(self.checkpoint_dir, most_recent_checkpoint)
 
@@ -314,7 +315,8 @@ class Util:
                 return root
 
     def save_algorithm(self, root):
-        if root is None:
+        #stop if no algorithm was found or resulting graph was already saved before
+        if root is None or '{}.json'.format(root.obj) in listdir(self.base_dir):
             return
         words_with_max_suffix = self.generate_all_word_with_max_suffix()
         comp = root.obj
@@ -330,7 +332,7 @@ class Util:
             elif word == words_with_max_suffix[-1][0]:
                 print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
 
-                #clean up tree by removing unnecessary subtrees
+                # clean up tree by removing unnecessary subtrees
                 all_nodes = list(LevelOrderIter(root))
                 all_nodes.reverse()
                 for node in all_nodes:
@@ -348,7 +350,7 @@ class Util:
                             node.obj = node.children[2].obj
                             node.children = ()
 
-                #fix names for current print
+                # fix names for current print
                 index_buffer = 0
                 for node in LevelOrderIter(root):
                     node.name = index_buffer

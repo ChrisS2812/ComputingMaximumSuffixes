@@ -59,6 +59,8 @@ def generate_algorithm(root_value):
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
 def check_alg_for_root_comp(root_comp, words, comps):
+    if MY_UTIL.is_already_finished(root_comp):
+        return MY_UTIL.load_alg_from_checkpoint(root_comp)
     root_node = MY_UTIL.load_alg_from_checkpoint(root_comp)
     if root_node is None:
         root_node = generate_algorithm(root_comp)
@@ -114,7 +116,7 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
 
     # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
     # than the number of comparisons we have left in our subtree, we can return True immediately
-    if subword_length_left in MY_UTIL.knownTn and MY_UTIL.knownTn[subword_length_left] <= comparisons_left:
+    if subword_length_left in Util.knownTn and Util.knownTn[subword_length_left] <= comparisons_left:
         MY_UTIL.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
         return True
 
@@ -133,35 +135,57 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
             bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
 
             # Compute all comparisons that can be transitively deduced for each possible outcome
-            transitive_smaller = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '<'))
-            transitive_equal = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '='))
-            transitive_bigger = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '>'))
+            transitive_smaller = Util.compute_transitive_dependencies(prev_comps, (c_new, '<'))
+            transitive_equal = Util.compute_transitive_dependencies(prev_comps, (c_new, '='))
+            transitive_bigger = Util.compute_transitive_dependencies(prev_comps, (c_new, '>'))
 
             # remove current comparison and transitively clear comparisons
             # from further consideration
-            comps_smaller_new, prev_comps_smaller_new = Util.create_new_comps(c_new, comps, prev_comps,
-                                                                              transitive_smaller)
-            comps_equal_new, prev_comps_equal_new = Util.create_new_comps(c_new, comps, prev_comps, transitive_equal)
-            comps_bigger_new, prev_comps_bigger_new = Util.create_new_comps(c_new, comps, prev_comps, transitive_bigger)
+            comps_smaller_new = copy.deepcopy(comps)
+            comps_smaller_new.remove(c_new)
+            prev_comps_smaller_new = copy.deepcopy(prev_comps)
+            prev_comps_smaller_new.append((c_new, '<'))
+            for c, res in [t for t in transitive_smaller if t[0] in comps]:
+                comps_smaller_new.remove(c)
+                prev_comps_smaller_new.append((c, res))
+
+            comps_equal_new = copy.deepcopy(comps)
+            comps_equal_new.remove(c_new)
+            prev_comps_equal_new = copy.deepcopy(prev_comps)
+            prev_comps_equal_new.append((c_new, '='))
+            for c, res in [t for t in transitive_equal if t[0] in comps]:
+                comps_equal_new.remove(c)
+                prev_comps_equal_new.append((c, res))
+
+            comps_bigger_new = copy.deepcopy(comps)
+            comps_bigger_new.remove(c_new)
+            prev_comps_bigger_new = copy.deepcopy(prev_comps)
+            prev_comps_bigger_new.append((c_new, '>'))
+            for c, res in [t for t in transitive_bigger if t[0] in comps]:
+                comps_bigger_new.remove(c)
+                prev_comps_bigger_new.append((c, res))
 
             # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n
             # and we conduct a comparison between the a_i and a_{i+1} which yields  a_i < a_{i+1} we can
             # subsequently only investigate the subword a_{i+1} a_{i+2} ... a_n
-            comps_smaller_new, first_rel_char1 = Util.find_relevant_subword(comps_smaller_new, first_rel_char,
-                                                                            prev_comps_smaller_new)
+            comps_smaller_new, first_rel_char_smaller = Util.filter_comps_for_relevant_suffix(comps_smaller_new,
+                                                                                              first_rel_char,
+                                                                                              prev_comps_smaller_new)
 
-            comps_smaller_new, first_rel_char2 = Util.find_relevant_subword(comps_equal_new, first_rel_char,
-                                                                            prev_comps_equal_new)
+            comps_equal_new, first_rel_char_equal = Util.filter_comps_for_relevant_suffix(comps_equal_new,
+                                                                                          first_rel_char,
+                                                                                          prev_comps_equal_new)
 
-            comps_smaller_new, first_rel_char3 = Util.find_relevant_subword(comps_bigger_new, first_rel_char,
-                                                                            prev_comps_bigger_new)
+            comps_bigger_new, first_rel_char_bigger = Util.filter_comps_for_relevant_suffix(comps_bigger_new,
+                                                                                            first_rel_char,
+                                                                                            prev_comps_bigger_new)
 
             if (check_alg(current_node.children[0], smaller_list, comps_smaller_new, prev_comps_smaller_new,
-                          first_rel_char1) and
+                          first_rel_char_smaller) and
                     check_alg(current_node.children[1], equal_list, comps_equal_new, prev_comps_equal_new,
-                              first_rel_char2) and
+                              first_rel_char_equal) and
                     check_alg(current_node.children[2], bigger_list, comps_bigger_new, prev_comps_bigger_new,
-                              first_rel_char3)):
+                              first_rel_char_bigger)):
                 return True
             else:
                 # reset last_checked of all vertices below the current one as we are updating this ones comparison value
