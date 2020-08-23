@@ -5,22 +5,25 @@ from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 
-from anytree import LevelOrderIter
+import copy
+from anytree import LevelOrderIter, PreOrderIter
 from anytree.exporter import JsonExporter, DotExporter
 from anytree.importer import JsonImporter
 
 
 class Util:
+    knownTn = {1: 0, 2: 1, 3: 2, 4: 3, 5: 5, 6: 6, 7: 7}
+
     def __init__(self, n, m):
         self.n = n
         self.m = m
+        self.comp_pairs = self.generate_all_comp_pairs()
         self.base_dir = "N{}M{}".format(n, m)
         Path(self.base_dir).mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir = os.path.join(self.base_dir, 'checkpoint')
         Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         self.SAVE_INTERVAL = 3600  # 1 hour
         self.LAST_SAVE = int(time.time())
-        self.knownTn = {1: 0, 2: 1, 3: 2, 4: 3, 5: 5, 6: 6, 7: 7}
 
     # Duval's algorithm for finding the index of maximum suffix
     @staticmethod
@@ -228,6 +231,49 @@ class Util:
                 else:
                     new_result.append((new_tuple, '<'))
         return new_result
+
+    @staticmethod
+    def find_relevant_subword(comps_smaller_new, first_rel_char1, prev_comps_smaller_new):
+        while True:
+            if ([first_rel_char1, first_rel_char1 + 1], '<') in prev_comps_smaller_new:
+                comps_smaller_new = list(filter(lambda x: x[0] == first_rel_char1, comps_smaller_new))
+                first_rel_char1 += 1
+            else:
+                break
+        return comps_smaller_new, first_rel_char1
+
+    @staticmethod
+    def create_new_comps(c_new, comps, prev_comps, transitive_smaller):
+        comps_smaller_new = copy.deepcopy(comps)
+        prev_comps_smaller_new = copy.deepcopy(prev_comps)
+        prev_comps_smaller_new.append((c_new, '<'))
+        comps_smaller_new.remove(c_new)
+        for c, res in [t for t in transitive_smaller if t[0] in comps]:
+            comps_smaller_new.remove(c)
+            prev_comps_smaller_new.append((c, res))
+        return comps_smaller_new, prev_comps_smaller_new
+
+    def append_known_decision_tree(self, current_node, first_rel_char, subword_length_left):
+        LOAD_UTIL = Util(subword_length_left, Util.knownTn[subword_length_left])
+        for root_comp in self.comp_pairs:
+            subtree = LOAD_UTIL.load_working_tree(root_comp)
+            if subtree is not None:
+                # update subtree to match indices of current word and remove deprecated r-values
+                for node in PreOrderIter(subtree):
+                    if not node.is_leaf:
+                        node.obj = [node.obj[0] + first_rel_char, node.obj[1] + first_rel_char]
+                    else:
+                        node.obj = ""
+
+                current_node.obj = subtree.obj
+                current_node.children = (subtree.children[0], subtree.children[1], subtree.children[2])
+
+                # fix naming which is used as indices
+                for node in LevelOrderIter(current_node):
+                    if node.children:
+                        node.children[0].name = node.name * 3 + 1
+                        node.children[1].name = node.name * 3 + 2
+                        node.children[2].name = node.name * 3 + 3
 
     # Helping function that regularly saves current state of algorithm (i.e. the current tree)
     # to a file from which it can be reloaded.

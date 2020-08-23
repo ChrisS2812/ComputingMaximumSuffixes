@@ -9,7 +9,7 @@ import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
 
-from anytree import Node, PreOrderIter, LevelOrderIter
+from anytree import Node, PreOrderIter
 
 from Util import Util
 
@@ -20,22 +20,17 @@ ONLY_HIGHEST_DEBUG = True
 NR_WORKERS = 8
 MY_UTIL = Util(n, m)
 
-comp_pairs = MY_UTIL.generate_all_comp_pairs()
 
-
-# Generates a decision tree for M comparisons with given root value that fulfils the following rule(s):
-# 1. No path contains the same node value twice
-#
-# Define a tree structure inside a list, each representing a different height of the tree. Anytree helps us
-# navigating the tree (i.e. finding children, parents etc.)
+# Generates an initial decision tree for M comparisons with given root value
+# Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
 def generate_algorithm(root_value):
     alg = []
     current_index = 0
     for ga_i in range(m + 1):
         if ga_i == 0:
             # Root Node
-            root = Node(current_index, obj=root_value)
-            alg.append(root)
+            root_node = Node(current_index, obj=root_value)
+            alg.append(root_node)
             current_index += 1
         elif ga_i == m:
             # Leaf Nodes
@@ -53,7 +48,7 @@ def generate_algorithm(root_value):
                     parent_index = (parent_index - 1) // 3
                     parent_values.append(alg[parent_index].obj)
 
-                for pair in comp_pairs:
+                for pair in MY_UTIL.comp_pairs:
                     if pair not in parent_values:
                         alg.append(Node(current_index, obj=pair, last_checked=0, parent=parent))
                         current_index += 1
@@ -64,9 +59,9 @@ def generate_algorithm(root_value):
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
 def check_alg_for_root_comp(root_comp, words, comps):
-    root = MY_UTIL.load_alg_from_checkpoint(root_comp)
-    if root is None:
-        root = generate_algorithm(root_comp)
+    root_node = MY_UTIL.load_alg_from_checkpoint(root_comp)
+    if root_node is None:
+        root_node = generate_algorithm(root_comp)
 
     if DEBUG:
         print("({}) Starting checking of algorithms with root value {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()),
@@ -93,13 +88,13 @@ def check_alg_for_root_comp(root_comp, words, comps):
     else:
         first_rel_char_smaller = 0
 
-    if (check_alg(root.children[0], smaller_list, comps_new_smaller, [(root_comp, '<')], first_rel_char_smaller) and
-            check_alg(root.children[1], equal_list, comps_new_equal, [(root_comp, '=')], 0) and
-            check_alg(root.children[2], bigger_list, comps_new_bigger, [(root_comp, '>')], 0)):
-        MY_UTIL.save_current_graph(root.root, is_final=True)
-        return root
+    if (check_alg(root_node.children[0], smaller_list, comps_new_smaller, [(root_comp, '<')], first_rel_char_smaller)
+            and check_alg(root_node.children[1], equal_list, comps_new_equal, [(root_comp, '=')], 0)
+            and check_alg(root_node.children[2], bigger_list, comps_new_bigger, [(root_comp, '>')], 0)):
+        MY_UTIL.save_current_graph(root_node.root, is_final=True)
+        return root_node
     else:
-        MY_UTIL.save_current_graph(root.root, is_final=True)
+        MY_UTIL.save_current_graph(root_node.root, is_final=True)
         return
 
 
@@ -120,26 +115,7 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
     # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
     # than the number of comparisons we have left in our subtree, we can return True immediately
     if subword_length_left in MY_UTIL.knownTn and MY_UTIL.knownTn[subword_length_left] <= comparisons_left:
-        LOAD_UTIL = Util(subword_length_left, MY_UTIL.knownTn[subword_length_left])
-        for root_comp in comp_pairs:
-            subtree = LOAD_UTIL.load_working_tree(root_comp)
-            if subtree is not None:
-                # update subtree to match indices of current word and remove deprecated r-values
-                for node in PreOrderIter(subtree):
-                    if not node.is_leaf:
-                        node.obj = [node.obj[0] + first_rel_char, node.obj[1] + first_rel_char]
-                    else:
-                        node.obj = ""
-
-                current_node.obj = subtree.obj
-                current_node.children = (subtree.children[0], subtree.children[1], subtree.children[2])
-
-                # fix naming which is used as indices
-                for node in LevelOrderIter(current_node):
-                    if node.children:
-                        node.children[0].name = node.name * 3 + 1
-                        node.children[1].name = node.name * 3 + 2
-                        node.children[2].name = node.name * 3 + 3
+        MY_UTIL.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
         return True
 
     if not current_node.is_leaf:
@@ -163,56 +139,22 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
 
             # remove current comparison and transitively clear comparisons
             # from further consideration
-            comps_smaller_new = copy.deepcopy(comps)
-            prev_comps_smaller_new = copy.deepcopy(prev_comps)
-            prev_comps_smaller_new.append((c_new, '<'))
-            comps_smaller_new.remove(c_new)
-            for c, res in [t for t in transitive_smaller if t[0] in comps]:
-                comps_smaller_new.remove(c)
-                prev_comps_smaller_new.append((c, res))
-
-            comps_equal_new = copy.deepcopy(comps)
-            comps_equal_new.remove(c_new)
-            prev_comps_equal_new = copy.deepcopy(prev_comps)
-            prev_comps_equal_new.append((c_new, '='))
-            for c, res in [t for t in transitive_equal if t[0] in comps]:
-                comps_equal_new.remove(c)
-                prev_comps_equal_new.append((c, res))
-
-            comps_bigger_new = copy.deepcopy(comps)
-            comps_bigger_new.remove(c_new)
-            prev_comps_bigger_new = copy.deepcopy(prev_comps)
-            prev_comps_bigger_new.append((c_new, '>'))
-            for c, res in [t for t in transitive_bigger if t[0] in comps]:
-                comps_bigger_new.remove(c)
-                prev_comps_bigger_new.append((c, res))
+            comps_smaller_new, prev_comps_smaller_new = Util.create_new_comps(c_new, comps, prev_comps,
+                                                                              transitive_smaller)
+            comps_equal_new, prev_comps_equal_new = Util.create_new_comps(c_new, comps, prev_comps, transitive_equal)
+            comps_bigger_new, prev_comps_bigger_new = Util.create_new_comps(c_new, comps, prev_comps, transitive_bigger)
 
             # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n
             # and we conduct a comparison between the a_i and a_{i+1} which yields  a_i < a_{i+1} we can
             # subsequently only investigate the subword a_{i+1} a_{i+2} ... a_n
-            first_rel_char1 = first_rel_char
-            while True:
-                if ([first_rel_char1, first_rel_char1 + 1], '<') in prev_comps_smaller_new:
-                    comps_smaller_new = list(filter(lambda x: x[0] == first_rel_char1, comps_smaller_new))
-                    first_rel_char1 += 1
-                else:
-                    break
+            comps_smaller_new, first_rel_char1 = Util.find_relevant_subword(comps_smaller_new, first_rel_char,
+                                                                            prev_comps_smaller_new)
 
-            first_rel_char2 = first_rel_char
-            while True:
-                if ([first_rel_char2, first_rel_char2 + 1], '<') in prev_comps_equal_new:
-                    comps_equal_new = list(filter(lambda x: x[0] == first_rel_char2, comps_equal_new))
-                    first_rel_char2 += 1
-                else:
-                    break
+            comps_smaller_new, first_rel_char2 = Util.find_relevant_subword(comps_equal_new, first_rel_char,
+                                                                            prev_comps_equal_new)
 
-            first_rel_char3 = first_rel_char
-            while True:
-                if ([first_rel_char3, first_rel_char3 + 1], '<') in prev_comps_bigger_new:
-                    comps_bigger_new = list(filter(lambda x: x[0] == first_rel_char3, comps_bigger_new))
-                    first_rel_char3 += 1
-                else:
-                    break
+            comps_smaller_new, first_rel_char3 = Util.find_relevant_subword(comps_bigger_new, first_rel_char,
+                                                                            prev_comps_bigger_new)
 
             if (check_alg(current_node.children[0], smaller_list, comps_smaller_new, prev_comps_smaller_new,
                           first_rel_char1) and
@@ -252,9 +194,9 @@ if NR_WORKERS > 1:
     workers = Pool(processes=NR_WORKERS)
     try:
         results = []
-        for comp in comp_pairs:
+        for comp in MY_UTIL.comp_pairs:
             start = timeit.default_timer()  # measure running time
-            r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, comp_pairs),
+            r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, MY_UTIL.comp_pairs),
                                     callback=MY_UTIL.save_algorithm)
             results.append(r)
         for r in results:
@@ -270,8 +212,8 @@ if NR_WORKERS > 1:
         print("pool successfully closed")
 
 else:
-    for comp in comp_pairs:
-        working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, comp_pairs))
+    for comp in MY_UTIL.comp_pairs:
+        working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
 
 print("Runtime: {}s".format(time.time() - runtime_start))
 
