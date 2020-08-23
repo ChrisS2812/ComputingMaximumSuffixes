@@ -2,10 +2,10 @@ import itertools
 import os
 import time
 from os import listdir
-from os.path import isfile
+from os.path import isfile, join
 from pathlib import Path
 
-from anytree import LevelOrderIter, RenderTree
+from anytree import LevelOrderIter
 from anytree.exporter import JsonExporter, DotExporter
 from anytree.importer import JsonImporter
 
@@ -20,6 +20,7 @@ class Util:
         Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         self.SAVE_INTERVAL = 3600  # 1 hour
         self.LAST_SAVE = int(time.time())
+        self.knownTn = {1: 0, 2: 1, 3: 2, 4: 3, 5: 5, 6: 6, 7: 7}
 
     # Duval's algorithm for finding the index of maximum suffix
     @staticmethod
@@ -47,6 +48,14 @@ class Util:
                     s += 1
                     m = 1
         return r
+
+    # Compute all possible pairs of indices that can be compared
+    def generate_all_comp_pairs(self):
+        comp_pairs = []
+        for i in range(self.n):
+            for j in range(i + 1, self.n):
+                comp_pairs.append([i, j])
+        return comp_pairs
 
     # Create all possible words for a given N
     def generate_all_word_with_max_suffix(self):
@@ -86,90 +95,41 @@ class Util:
 
         return result
 
-        # Helping function that computes the path of of a given word in a given decision tree in the form:
+    @staticmethod
+    def divide_words(comp, words):
+        i1, i2 = comp
+        smaller_list = []
+        equal_list = []
+        bigger_list = []
+        for entry in words:
+            curr_word = entry[0]
+            if curr_word[i1] < curr_word[i2]:
+                smaller_list.append(entry)
+            elif curr_word[i1] == curr_word[i2]:
+                equal_list.append(entry)
+            else:
+                bigger_list.append(entry)
+        return bigger_list, equal_list, smaller_list
 
-    # * (n_1,...,n_m) where n_i represents the id of the i'th node
-    def compute_path_for_word(self, alg, word):
-        current_index = 0
-        path = []
-        while current_index < len(alg):
-            path.append(current_index)
-            if self.is_leaf(current_index):
+    # Helping function that checks whether a word in a given tree is valid
+    def check_validity_of_word(self, current_node, word, r):
+        while True:
+            if not isinstance(current_node.obj, list):
                 break
-            i1, i2 = alg[current_index].obj
+            i1, i2 = current_node.obj
             c1 = word[i1]
             c2 = word[i2]
             if c1 < c2:
-                current_index = current_index * 3 + 1
+                current_node = current_node.children[0]
             elif c1 == c2:
-                current_index = current_index * 3 + 2
+                current_node = current_node.children[1]
             else:
-                current_index = current_index * 3 + 3
-        return path
-
-    # Helping function that computes (all) decision-tree-independent path representation on which a given index lies.
-    # A path is a string of the form:
-    # * c_1r_1c_2_r_2...c_M
-    # where c_i represents a comparison and r_i the result of this comparison ("<", "=", or ">")
-    def compute_path_repr_for_index(self, alg, index):
-        if self.is_leaf(index=index):
-            return self.compute_path_repr_for_index(alg, (index - 1) // 3)
-        if self.is_last_comp(index=index):
-            # start at lowest comparison node (the last node is not important for blacklisted paths)
-            re = str(alg[index].obj)
-            while index != 0:
-                mod = index % 3
-                if mod == 0:
-                    re = ">" + re
-                elif mod == 1:
-                    re = "<" + re
-                else:
-                    re = "=" + re
-                index = (index - 1) // 3
-                re = str(alg[index].obj) + re
-            return [re]
-        else:
-            result = []
-            # Append paths for all children
-            result.extend(self.compute_path_repr_for_index(alg, index * 3 + 1))
-            result.extend(self.compute_path_repr_for_index(alg, index * 3 + 2))
-            result.extend(self.compute_path_repr_for_index(alg, index * 3 + 3))
-            return result
-
-    # Helping function that decides whether a node at a given index is a leaf or not.
-    def is_leaf(self, index):
-        if self.m < 1:
-            return True
-
-        last_non_leaf_index = -1
-        for i in range(0, self.m):
-            last_non_leaf_index += 3 ** i
-        if index <= last_non_leaf_index:
+                current_node = current_node.children[2]
+        if current_node.obj != "" and current_node.obj != r:
             return False
         else:
+            current_node.obj = r
             return True
-
-    # Helping function that decides whether a node at a given index represents the last comparison
-    def is_last_comp(self, index):
-        if self.m < 1:
-            return False
-        if self.m == 2:
-            if index == 0:
-                return True
-            else:
-                return False
-
-        if self.is_leaf(index):
-            return False
-
-        last_non_last_comp_index = -1
-        for i in range(0, self.m - 1):
-            last_non_last_comp_index += 3 ** i
-
-        if index > last_non_last_comp_index:
-            return True
-        else:
-            return False
 
     # Helping function that computes for a list of previously executed comparison and a new (current) comparison
     # whether, after carrying out the new comparison, any other comparisons can be deduced transitively
@@ -271,9 +231,16 @@ class Util:
 
     # Helping function that regularly saves current state of algorithm (i.e. the current tree)
     # to a file from which it can be reloaded.
-    def save_current_graph(self, root):
+    def save_current_graph(self, root, is_final=False):
         ts = int(time.time())
-        if ts - self.LAST_SAVE >= self.SAVE_INTERVAL:
+        if is_final:
+            filename = "{}_final.json".format(root.obj)
+            final_path = os.path.join(self.checkpoint_dir, filename)
+
+            with open(final_path, 'w') as f:
+                JsonExporter(indent=2).write(root, f)
+
+        elif ts - self.LAST_SAVE >= self.SAVE_INTERVAL:
             filename = "{}_{}.json".format(root.obj, ts)
             final_path = os.path.join(self.checkpoint_dir, filename)
 
@@ -284,60 +251,77 @@ class Util:
     # Helping function that loads current state of algorithm (i.e. the current tree)
     # from a file in json format
     def load_alg_from_checkpoint(self, root_comp):
-        from os.path import join
         chkpnt_files = [f for f in listdir(self.checkpoint_dir) if isfile(join(self.checkpoint_dir, f))
                         and f.startswith(str(root_comp))]
 
         if not chkpnt_files:
-            return -1
+            return None
 
-        chkpnt_files.sort()
-        most_recent_checkpoint = chkpnt_files[-1]
+        most_recent_checkpoint = '{}_final'.format(root_comp)
+
+        if most_recent_checkpoint not in chkpnt_files:
+            chkpnt_files.sort()
+            most_recent_checkpoint = chkpnt_files[-1]
 
         path_to_most_recent_checkpoint = os.path.join(self.checkpoint_dir, most_recent_checkpoint)
 
         with open(path_to_most_recent_checkpoint, 'r') as f:
             root = JsonImporter().read(f)
 
-        alg = [node for node in LevelOrderIter(root)]
+        return root
 
-        return alg
+    def load_working_tree(self, root_comp):
+        alg_file = os.path.join(self.base_dir, '{}.json'.format(root_comp))
 
-    def save_algorithm(self, alg):
-        if alg is None:
+        if os.path.exists(alg_file):
+            with open(alg_file, 'r') as f:
+                root = JsonImporter().read(f)
+
+                return root
+
+    def save_algorithm(self, root):
+        if root is None:
             return
         words_with_max_suffix = self.generate_all_word_with_max_suffix()
-        comp = alg[0].obj
+        comp = root.obj
 
         # Verify (fill in correct r-values in tree on the way in order to pretty print it)
-        result_map = {}
         for word, r in words_with_max_suffix:
-            result = self.compute_path_for_word(alg, word)
-            alg[result[-1]].obj = r
-
-            stringed_result = str(result)
-            stringed_path = ""
-            for node_id in result:
-                stringed_path += str(node_id)
-                if node_id != result[-1]:
-                    stringed_path += " [{}]".format(alg[node_id].obj)
-                    stringed_path += " -> "
-            if stringed_result in result_map and result_map[stringed_result][1] != r:
-                # Found witness path
-                print("Not verified!")
+            if not self.check_validity_of_word(root, word, r):
+                print("Not verified - failed for word {} ".format(word))
+                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                    "{}_fail.png".format(root.obj))
                 break
 
             elif word == words_with_max_suffix[-1][0]:
-                print("Found Algorithm with root value {} exists for n={}, m={}".format(alg[0].obj, self.n, self.m))
+                print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
 
-                filled_leafs = 0
-                for i, node in enumerate(alg):
-                    if self.is_leaf(i) and node.obj != "":
-                        filled_leafs += 1
+                #clean up tree by removing unnecessary subtrees
+                all_nodes = list(LevelOrderIter(root))
+                all_nodes.reverse()
+                for node in all_nodes:
+                    if not node.is_leaf:
+                        if node.children[0].obj == "" and node.children[1].obj == "" and node.children[2].obj == "":
+                            node.obj = ""
+                            node.children = ()
+                        elif node.children[0].obj != "" and node.children[1].obj == "" and node.children[2].obj == "":
+                            node.obj = node.children[0].obj
+                            node.children = ()
+                        elif node.children[1].obj != "" and node.children[0].obj == "" and node.children[2].obj == "":
+                            node.obj = node.children[1].obj
+                            node.children = ()
+                        elif node.children[2].obj != "" and node.children[0].obj == "" and node.children[1].obj == "":
+                            node.obj = node.children[2].obj
+                            node.children = ()
 
-                DotExporter(alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                #fix names for current print
+                index_buffer = 0
+                for node in LevelOrderIter(root):
+                    node.name = index_buffer
+                    index_buffer += 1
+
+                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
                     "{}/{}.png".format(self.base_dir, comp))
-                DotExporter(alg[0], nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
-                    "{}/{}.txt".format(self.base_dir, comp))
-
-            result_map[stringed_result] = (word, r)
+                json_path = os.path.join(self.base_dir, "{}.json".format(root.obj))
+                with open(json_path, 'w') as f:
+                    JsonExporter(indent=2).write(root, f)

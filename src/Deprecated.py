@@ -237,3 +237,41 @@
 #             continue
 #         if not check_legal_set:
 #             return curr_alg
+
+# Helping function that computes (all) decision-tree-independent path representation on which a given index lies.
+# A path is a string of the form:
+# * c_1r_1c_2_r_2...c_M
+# where c_i represents a comparison and r_i the result of this comparison ("<", "=", or ">")
+# def compute_path_repr_for_index(self, alg, index):
+#     if self.is_leaf(index=index):
+#         return self.compute_path_repr_for_index(alg, (index - 1) // 3)
+#     if self.is_last_comp(index=index):
+#         # start at lowest comparison node (the last node is not important for blacklisted paths)
+#         re = str(alg[index].obj)
+#         while index != 0:
+#             mod = index % 3
+#             if mod == 0:
+#                 re = ">" + re
+#             elif mod == 1:
+#                 re = "<" + re
+#             else:
+#                 re = "=" + re
+#             index = (index - 1) // 3
+#             re = str(alg[index].obj) + re
+#         return [re]
+#     else:
+#         result = []
+#         # Append paths for all children
+#         result.extend(self.compute_path_repr_for_index(alg, index * 3 + 1))
+#         result.extend(self.compute_path_repr_for_index(alg, index * 3 + 2))
+#         result.extend(self.compute_path_repr_for_index(alg, index * 3 + 3))
+#         return result
+
+# # Helping function that decides whether a node at a given index represents the last comparison
+# def is_last_comp(self, index):
+#     if self.m < 1:
+#         return False
+#
+#     if self.compute_depth(index) == self.m - 1:
+#         return True
+#     return False

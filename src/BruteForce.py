@@ -9,9 +9,9 @@ import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
 
-from anytree import Node, PreOrderIter
+from anytree import Node, PreOrderIter, LevelOrderIter
 
-from src.Util import Util
+from Util import Util
 
 n = 5
 m = 5
@@ -20,12 +20,7 @@ ONLY_HIGHEST_DEBUG = True
 NR_WORKERS = 8
 MY_UTIL = Util(n, m)
 
-# Compute all possible pairs of indices that can be compared
-comp_pairs = []
-for i in range(n):
-    for j in range(i + 1, n):
-        comp_pairs.append([i, j])
-print(comp_pairs)
+comp_pairs = MY_UTIL.generate_all_comp_pairs()
 
 
 # Generates a decision tree for M comparisons with given root value that fulfils the following rule(s):
@@ -63,33 +58,22 @@ def generate_algorithm(root_value):
                         alg.append(Node(current_index, obj=pair, last_checked=0, parent=parent))
                         current_index += 1
                         break
-    return alg
+    return alg[0]
 
 
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
 def check_alg_for_root_comp(root_comp, words, comps):
-    alg = MY_UTIL.load_alg_from_checkpoint(root_comp)
-    if alg == -1:
-        alg = generate_algorithm(root_comp)
+    root = MY_UTIL.load_alg_from_checkpoint(root_comp)
+    if root is None:
+        root = generate_algorithm(root_comp)
 
     if DEBUG:
         print("({}) Starting checking of algorithms with root value {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                                                                                root_comp))
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
-    i1, i2 = root_comp
-    smaller_list = []
-    equal_list = []
-    bigger_list = []
-    for entry in words:
-        curr_word = entry[0]
-        if curr_word[i1] < curr_word[i2]:
-            smaller_list.append(entry)
-        elif curr_word[i1] == curr_word[i2]:
-            equal_list.append(entry)
-        else:
-            bigger_list.append(entry)
+    bigger_list, equal_list, smaller_list = Util.divide_words(root_comp, words)
 
     # remove the comparison value at the current node from further consideration
     comps_new_smaller = copy.deepcopy(comps)
@@ -109,48 +93,68 @@ def check_alg_for_root_comp(root_comp, words, comps):
     else:
         first_rel_char_smaller = 0
 
-    if (check_alg(alg, 1, smaller_list, comps_new_smaller, [(root_comp, '<')], first_rel_char_smaller) and
-            check_alg(alg, 2, equal_list, comps_new_equal, [(root_comp, '=')], 0) and
-            check_alg(alg, 3, bigger_list, comps_new_bigger, [(root_comp, '>')], 0)):
-        return alg
+    if (check_alg(root.children[0], smaller_list, comps_new_smaller, [(root_comp, '<')], first_rel_char_smaller) and
+            check_alg(root.children[1], equal_list, comps_new_equal, [(root_comp, '=')], 0) and
+            check_alg(root.children[2], bigger_list, comps_new_bigger, [(root_comp, '>')], 0)):
+        MY_UTIL.save_current_graph(root.root, is_final=True)
+        return root
     else:
+        MY_UTIL.save_current_graph(root.root, is_final=True)
         return
 
 
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
-def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
+def check_alg(current_node, words, comps, prev_comps, first_rel_char):
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if len(words) <= 1:
         return True
+
     # If only one distinct r-value is left for all words, we can immediatly take this r-value
     if len(set([w_r for (w, w_r) in words])) == 1:
         return True
 
-    if not MY_UTIL.is_leaf(index):
-        # Divide - here we want to check all possible values for the node (that have not yet been checked)
-        for c_new in comps[alg[index].last_checked:]:
-            if DEBUG and (not ONLY_HIGHEST_DEBUG or index < 4):
-                print("({}, {}) Increasing index {} from {} to {}".format(alg[0].obj,
-                                                                          strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                                                                          index,
-                                                                          alg[index].obj, c_new))
+    comparisons_left = m - current_node.depth
+    subword_length_left = n - first_rel_char
 
-            alg[index].obj = c_new
+    # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
+    # than the number of comparisons we have left in our subtree, we can return True immediately
+    if subword_length_left in MY_UTIL.knownTn and MY_UTIL.knownTn[subword_length_left] <= comparisons_left:
+        LOAD_UTIL = Util(subword_length_left, MY_UTIL.knownTn[subword_length_left])
+        for root_comp in comp_pairs:
+            subtree = LOAD_UTIL.load_working_tree(root_comp)
+            if subtree is not None:
+                # update subtree to match indices of current word and remove deprecated r-values
+                for node in PreOrderIter(subtree):
+                    if not node.is_leaf:
+                        node.obj = [node.obj[0] + first_rel_char, node.obj[1] + first_rel_char]
+                    else:
+                        node.obj = ""
+
+                current_node.obj = subtree.obj
+                current_node.children = (subtree.children[0], subtree.children[1], subtree.children[2])
+
+                # fix naming which is used as indices
+                for node in LevelOrderIter(current_node):
+                    if node.children:
+                        node.children[0].name = node.name * 3 + 1
+                        node.children[1].name = node.name * 3 + 2
+                        node.children[2].name = node.name * 3 + 3
+        return True
+
+    if not current_node.is_leaf:
+        # Divide - here we want to check all possible values for the node (that have not yet been checked)
+        for c_new in comps[current_node.last_checked:]:
+            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 4):
+                print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
+                                                                          strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                                                          current_node.name,
+                                                                          current_node.obj, c_new))
+
+            current_node.obj = c_new
 
             # Compute three subsets of the words and of the tree
-            i1, i2 = alg[index].obj
-            smaller_list = []
-            equal_list = []
-            bigger_list = []
-            for entry in words:
-                curr_word = entry[0]
-                if curr_word[i1] < curr_word[i2]:
-                    smaller_list.append(entry)
-                elif curr_word[i1] == curr_word[i2]:
-                    equal_list.append(entry)
-                else:
-                    bigger_list.append(entry)
+            bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
 
             # Compute all comparisons that can be transitively deduced for each possible outcome
             transitive_smaller = MY_UTIL.compute_transitive_dependencies(prev_comps, (c_new, '<'))
@@ -188,7 +192,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # subsequently only investigate the subword a_{i+1} a_{i+2} ... a_n
             first_rel_char1 = first_rel_char
             while True:
-                if ([first_rel_char1, first_rel_char1+1], '<') in prev_comps_smaller_new:
+                if ([first_rel_char1, first_rel_char1 + 1], '<') in prev_comps_smaller_new:
                     comps_smaller_new = list(filter(lambda x: x[0] == first_rel_char1, comps_smaller_new))
                     first_rel_char1 += 1
                 else:
@@ -196,35 +200,35 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
 
             first_rel_char2 = first_rel_char
             while True:
-                if ([first_rel_char2, first_rel_char2+1], '<') in prev_comps_equal_new:
-                    comps_equal_new = list(filter(lambda x: x[0] == first_rel_char1, comps_equal_new))
+                if ([first_rel_char2, first_rel_char2 + 1], '<') in prev_comps_equal_new:
+                    comps_equal_new = list(filter(lambda x: x[0] == first_rel_char2, comps_equal_new))
                     first_rel_char2 += 1
                 else:
                     break
 
             first_rel_char3 = first_rel_char
             while True:
-                if ([first_rel_char3, first_rel_char3+1], '<') in prev_comps_bigger_new:
-                    comps_bigger_new = list(filter(lambda x: x[0] == first_rel_char1, comps_bigger_new))
+                if ([first_rel_char3, first_rel_char3 + 1], '<') in prev_comps_bigger_new:
+                    comps_bigger_new = list(filter(lambda x: x[0] == first_rel_char3, comps_bigger_new))
                     first_rel_char3 += 1
                 else:
                     break
 
-            if (check_alg(alg, index * 3 + 1, smaller_list, comps_smaller_new, prev_comps_smaller_new,
+            if (check_alg(current_node.children[0], smaller_list, comps_smaller_new, prev_comps_smaller_new,
                           first_rel_char1) and
-                    check_alg(alg, index * 3 + 2, equal_list, comps_equal_new, prev_comps_equal_new,
+                    check_alg(current_node.children[1], equal_list, comps_equal_new, prev_comps_equal_new,
                               first_rel_char2) and
-                    check_alg(alg, index * 3 + 3, bigger_list, comps_bigger_new, prev_comps_bigger_new,
+                    check_alg(current_node.children[2], bigger_list, comps_bigger_new, prev_comps_bigger_new,
                               first_rel_char3)):
                 return True
             else:
-                #reset last_checked of all vertices below the current one as we are updating this ones comparison value
-                for node in PreOrderIter(alg[index]):
-                    #do not change checked value at root
-                    if node.name != index:
+                # reset last_checked of all vertices below the current one as we are updating this ones comparison value
+                for node in PreOrderIter(current_node):
+                    # do not change checked value at root
+                    if node.name != current_node.name:
                         node.last_checked = 0
-                alg[index].last_checked += 1
-                MY_UTIL.save_current_graph(alg[0])
+                current_node.last_checked += 1
+                MY_UTIL.save_current_graph(current_node.root)
         return False
 
     else:
@@ -233,6 +237,7 @@ def check_alg(alg, index, words, comps, prev_comps, first_rel_char):
             # Found two distinct r-values here -> current decision tree can not be legal
             return False
         return True
+
 
 words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
 print("Need to find Algorithm for {} interesting words".format(len(words_with_max_suffix)))
@@ -270,5 +275,5 @@ else:
 
 print("Runtime: {}s".format(time.time() - runtime_start))
 
-for i, working_alg in enumerate(working_algs):
-    MY_UTIL.save_algorithm(working_alg)
+for i, root in enumerate(working_algs):
+    MY_UTIL.save_algorithm(root)
