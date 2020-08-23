@@ -233,25 +233,13 @@ class Util:
         return new_result
 
     @staticmethod
-    def find_relevant_subword(comps_smaller_new, first_rel_char1, prev_comps_smaller_new):
+    def filter_comps_for_relevant_suffix(comps, first_rel_char, prev_comps):
         while True:
-            if ([first_rel_char1, first_rel_char1 + 1], '<') in prev_comps_smaller_new:
-                comps_smaller_new = list(filter(lambda x: x[0] == first_rel_char1, comps_smaller_new))
-                first_rel_char1 += 1
+            if ([first_rel_char, first_rel_char + 1], '<') in prev_comps:
+                comps = list(filter(lambda x: x[0] != first_rel_char, comps))
+                first_rel_char += 1
             else:
-                break
-        return comps_smaller_new, first_rel_char1
-
-    @staticmethod
-    def create_new_comps(c_new, comps, prev_comps, transitive_smaller):
-        comps_smaller_new = copy.deepcopy(comps)
-        prev_comps_smaller_new = copy.deepcopy(prev_comps)
-        prev_comps_smaller_new.append((c_new, '<'))
-        comps_smaller_new.remove(c_new)
-        for c, res in [t for t in transitive_smaller if t[0] in comps]:
-            comps_smaller_new.remove(c)
-            prev_comps_smaller_new.append((c, res))
-        return comps_smaller_new, prev_comps_smaller_new
+                return comps, first_rel_char
 
     def append_known_decision_tree(self, current_node, first_rel_char, subword_length_left):
         LOAD_UTIL = Util(subword_length_left, Util.knownTn[subword_length_left])
