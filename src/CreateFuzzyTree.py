@@ -129,10 +129,10 @@ difficult_words_readable = list(map(lambda x: ''.join(map(str, x)), difficult_wo
 print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'))
 print("\nDifficult words:")
 for w in difficult_words_readable:
-    print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)))
+    print("{} [r={}]".format(w, Util.max_suffix_duval(w)))
 
 with open(txt_filepath, 'w') as f:
     print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'), file=f)
     print("\nDifficult words:", file=f)
     for w in difficult_words_readable:
-        print("{} [r={}]".format(w, MY_UTIL.max_suffix_duval(w)), file=f)
+        print("{} [r={}]".format(w, Util.max_suffix_duval(w)), file=f)
