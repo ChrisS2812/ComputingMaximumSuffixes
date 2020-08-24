@@ -117,13 +117,13 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
     # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
     # than the number of comparisons we have left in our subtree, we can return True immediately
     if subword_length_left in Util.knownTn and Util.knownTn[subword_length_left] <= comparisons_left:
-        MY_UTIL.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
+        Util.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
         return True
 
     if not current_node.is_leaf:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps[current_node.last_checked:]:
-            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 4):
+            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 13):
                 print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
                                                                           strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                                                                           current_node.name,
@@ -145,24 +145,30 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
             comps_smaller_new.remove(c_new)
             prev_comps_smaller_new = copy.deepcopy(prev_comps)
             prev_comps_smaller_new.append((c_new, '<'))
-            for c, res in [t for t in transitive_smaller if t[0] in comps]:
-                comps_smaller_new.remove(c)
+            for c, res in transitive_smaller:
+                prev_comps_smaller_new.append((c, res))
+
+            for c, res in [t for t in transitive_smaller if t[0] in prev_comps_smaller_new]:
                 prev_comps_smaller_new.append((c, res))
 
             comps_equal_new = copy.deepcopy(comps)
             comps_equal_new.remove(c_new)
             prev_comps_equal_new = copy.deepcopy(prev_comps)
             prev_comps_equal_new.append((c_new, '='))
-            for c, res in [t for t in transitive_equal if t[0] in comps]:
-                comps_equal_new.remove(c)
+            for c, res in transitive_equal:
+                prev_comps_equal_new.append((c, res))
+
+            for c, res in [t for t in transitive_equal if t[0] in prev_comps_equal_new]:
                 prev_comps_equal_new.append((c, res))
 
             comps_bigger_new = copy.deepcopy(comps)
             comps_bigger_new.remove(c_new)
             prev_comps_bigger_new = copy.deepcopy(prev_comps)
             prev_comps_bigger_new.append((c_new, '>'))
-            for c, res in [t for t in transitive_bigger if t[0] in comps]:
-                comps_bigger_new.remove(c)
+            for c, res in transitive_bigger:
+                prev_comps_bigger_new.append((c, res))
+
+            for c, res in [t for t in transitive_bigger if t[0] in prev_comps_bigger_new]:
                 prev_comps_bigger_new.append((c, res))
 
             # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n

@@ -235,15 +235,16 @@ class Util:
     @staticmethod
     def filter_comps_for_relevant_suffix(comps, first_rel_char, prev_comps):
         while True:
-            if ([first_rel_char, first_rel_char + 1], '<') in prev_comps:
-                comps = list(filter(lambda x: x[0] != first_rel_char, comps))
+            if [c for c in prev_comps if c[0][0] == first_rel_char and c[1] == '<']:
+                comps = [c for c in comps if c[0] != first_rel_char]
                 first_rel_char += 1
             else:
                 return comps, first_rel_char
 
-    def append_known_decision_tree(self, current_node, first_rel_char, subword_length_left):
+    @staticmethod
+    def append_known_decision_tree(current_node, first_rel_char, subword_length_left):
         load_util = Util(subword_length_left, Util.knownTn[subword_length_left])
-        for root_comp in self.comp_pairs:
+        for root_comp in load_util.comp_pairs:
             subtree = load_util.load_working_tree(root_comp)
             if subtree is not None:
                 # update subtree to match indices of current word and remove deprecated r-values
@@ -262,6 +263,7 @@ class Util:
                         node.children[0].name = node.name * 3 + 1
                         node.children[1].name = node.name * 3 + 2
                         node.children[2].name = node.name * 3 + 3
+                return
 
     # Helping function that regularly saves current state of algorithm (i.e. the current tree)
     # to a file from which it can be reloaded.
@@ -284,7 +286,6 @@ class Util:
 
     def is_already_finished(self, root_comp):
         return '{}_final.json'.format(root_comp) in listdir(self.checkpoint_dir)
-
 
     # Helping function that loads current state of algorithm (i.e. the current tree)
     # from a file in json format
@@ -325,8 +326,6 @@ class Util:
         for word, r in words_with_max_suffix:
             if not self.check_validity_of_word(root, word, r):
                 print("Not verified - failed for word {} ".format(word))
-                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
-                    "{}_fail.png".format(root.obj))
                 break
 
             elif word == words_with_max_suffix[-1][0]:
