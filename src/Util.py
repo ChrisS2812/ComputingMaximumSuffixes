@@ -5,7 +5,6 @@ from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 
-import copy
 from anytree import LevelOrderIter, PreOrderIter
 from anytree.exporter import JsonExporter, DotExporter
 from anytree.importer import JsonImporter
@@ -19,11 +18,13 @@ class Util:
         self.m = m
         self.comp_pairs = self.generate_all_comp_pairs()
         self.base_dir = "N{}M{}".format(n, m)
-        Path(self.base_dir).mkdir(parents=True, exist_ok=True)
         self.checkpoint_dir = os.path.join(self.base_dir, 'checkpoint')
-        Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         self.SAVE_INTERVAL = 3600  # 1 hour
         self.LAST_SAVE = int(time.time())
+
+    def create_dirs(self):
+        Path(self.base_dir).mkdir(parents=True, exist_ok=True)
+        Path(self.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
     # Duval's algorithm for finding the index of maximum suffix
     @staticmethod
@@ -268,6 +269,7 @@ class Util:
     # Helping function that regularly saves current state of algorithm (i.e. the current tree)
     # to a file from which it can be reloaded.
     def save_current_graph(self, root, is_final=False):
+        self.create_dirs()
         ts = int(time.time())
         if is_final:
             filename = "{}_final.json".format(root.obj)
@@ -285,11 +287,13 @@ class Util:
             self.LAST_SAVE = ts
 
     def is_already_finished(self, root_comp):
+        self.create_dirs()
         return '{}_final.json'.format(root_comp) in listdir(self.checkpoint_dir)
 
     # Helping function that loads current state of algorithm (i.e. the current tree)
     # from a file in json format
     def load_alg_from_checkpoint(self, root_comp):
+        self.create_dirs()
         chkpnt_files = [f for f in listdir(self.checkpoint_dir) if isfile(join(self.checkpoint_dir, f))
                         and f.startswith(str(root_comp))]
 
@@ -307,6 +311,7 @@ class Util:
         return root
 
     def load_working_tree(self, root_comp):
+        self.create_dirs()
         alg_file = os.path.join(self.base_dir, '{}.json'.format(root_comp))
 
         if os.path.exists(alg_file):
@@ -316,7 +321,8 @@ class Util:
                 return root
 
     def save_algorithm(self, root):
-        #stop if no algorithm was found or resulting graph was already saved before
+        self.create_dirs()
+        # stop if no algorithm was found or resulting graph was already saved before
         if root is None or '{}.json'.format(root.obj) in listdir(self.base_dir):
             return
         words_with_max_suffix = self.generate_all_word_with_max_suffix()
@@ -331,32 +337,48 @@ class Util:
             elif word == words_with_max_suffix[-1][0]:
                 print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
 
-                # clean up tree by removing unnecessary subtrees
-                all_nodes = list(LevelOrderIter(root))
-                all_nodes.reverse()
-                for node in all_nodes:
-                    if not node.is_leaf:
-                        if node.children[0].obj == "" and node.children[1].obj == "" and node.children[2].obj == "":
-                            node.obj = ""
-                            node.children = ()
-                        elif node.children[0].obj != "" and node.children[1].obj == "" and node.children[2].obj == "":
-                            node.obj = node.children[0].obj
-                            node.children = ()
-                        elif node.children[1].obj != "" and node.children[0].obj == "" and node.children[2].obj == "":
-                            node.obj = node.children[1].obj
-                            node.children = ()
-                        elif node.children[2].obj != "" and node.children[0].obj == "" and node.children[1].obj == "":
-                            node.obj = node.children[2].obj
-                            node.children = ()
-
-                # fix names for current print
-                index_buffer = 0
-                for node in LevelOrderIter(root):
-                    node.name = index_buffer
-                    index_buffer += 1
+                self.clean_up_final_tree(root)
 
                 DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
                     "{}/{}.png".format(self.base_dir, comp))
                 json_path = os.path.join(self.base_dir, "{}.json".format(root.obj))
                 with open(json_path, 'w') as f:
                     JsonExporter(indent=2).write(root, f)
+
+    @staticmethod
+    def clean_up_final_tree(root):
+        # clean up tree by removing unnecessary subtrees
+        all_nodes = list(LevelOrderIter(root))
+        all_nodes.reverse()
+        for node in all_nodes:
+            if not node.is_leaf:
+                # delete all children if they are all empty
+                if node.children[0].obj == "" and node.children[1].obj == "" and node.children[2].obj == "":
+                    node.children = ()
+
+                # move r-value to parent, if all children have the same r-value
+
+                elif isinstance(node.children[0].obj, int) and node.children[0].obj == node.children[1].obj and \
+                        node.children[1].obj == node.children[2].obj:
+                    node.obj = node.children[0].obj
+                    node.children = ()
+
+                # move r-value to parent if it is only present at one of three children; remove children afterwards
+                elif isinstance(node.children[0].obj, int) and node.children[1].obj == "" and \
+                        node.children[2].obj == "":
+                    node.obj = node.children[0].obj
+                    node.children = ()
+                elif isinstance(node.children[1].obj, int) and node.children[0].obj == "" and \
+                        node.children[2].obj == "":
+                    node.obj = node.children[1].obj
+                    node.children = ()
+                elif isinstance(node.children[2].obj, int) and node.children[0].obj == "" and \
+                        node.children[1].obj == "":
+                    node.obj = node.children[2].obj
+                    node.children = ()
+
+        # fix names for current print
+        index_buffer = 0
+        for node in LevelOrderIter(root):
+            node.name = index_buffer
+            index_buffer += 1
