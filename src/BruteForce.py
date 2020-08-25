@@ -111,6 +111,10 @@ def check_alg(current_node, words, comps, prev_comps, first_rel_char):
     if len(set([w_r for (w, w_r) in words])) == 1:
         return True
 
+    # If we have only one comparison left but more than 3 r-values in the word list we can return "False" early
+    if current_node.depth == m-1 and len(set([w_r for (w, w_r) in words])) > 3:
+        return False
+
     comparisons_left = m - current_node.depth
     subword_length_left = n - first_rel_char
 
