@@ -11,7 +11,7 @@ from anytree.importer import JsonImporter
 
 
 class Util:
-    knownTn = {1: 0, 2: 1, 3: 2, 4: 3, 5: 5, 6: 6, 7: 7}
+    knownTn = {1: 0, 2: 1, 3: 2, 4: 3, 5: 5, 6: 6, 7: 7, 8: 8}
 
     def __init__(self, n, m):
         self.n = n
@@ -320,7 +320,7 @@ class Util:
 
                 return root
 
-    def save_algorithm(self, root):
+    def save_algorithm(self, root, filename=None):
         self.create_dirs()
         # stop if no algorithm was found or resulting graph was already saved before
         if root is None or '{}.json'.format(root.obj) in listdir(self.base_dir):
@@ -339,11 +339,19 @@ class Util:
 
                 self.clean_up_final_tree(root)
 
-                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
-                    "{}/{}.png".format(self.base_dir, comp))
-                json_path = os.path.join(self.base_dir, "{}.json".format(root.obj))
+                if filename is None:
+                    filename = '{}'.format(comp)
+
+                json_path = os.path.join(self.base_dir, "{}.json".format(filename))
                 with open(json_path, 'w') as f:
                     JsonExporter(indent=2).write(root, f)
+
+                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
+                    "{}/{}.dot".format(self.base_dir, filename))
+
+
+                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                    "{}/{}.png".format(self.base_dir, filename))
 
     @staticmethod
     def clean_up_final_tree(root):

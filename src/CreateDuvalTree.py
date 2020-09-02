@@ -106,6 +106,7 @@ def get_edge_label(_, child):
 
 
 if n < 7:
+    Util.clean_up_final_tree(decision_tree[0])
     DotExporter(decision_tree[0],
                 nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj),
                 edgeattrfunc=get_edge_label).to_picture(pic_filepath)
