@@ -3,13 +3,13 @@ import json
 import os
 from pathlib import Path
 
-from anytree import Node
-from anytree.exporter import DotExporter
+from anytree import Node, LevelOrderIter
+from anytree.exporter import DotExporter, JsonExporter
 from tabulate import tabulate
 
 from Util import Util
 
-n = 9
+n = 8
 MY_UTIL = Util(n, -1)
 
 nr_comparisons_count = {}
@@ -27,11 +27,13 @@ Path(base_dir).mkdir(parents=True, exist_ok=True)
 pic_filename = "{}.png".format(n)
 txt_filename = "{}.txt".format(n)
 dot_filename = "{}.dot".format(n)
-json_filename = '{}_difficult_words.json'.format(n)
+json_filename = '{}.json'.format(n)
+difficult_words_filename = '{}_difficult_words.json'.format(n)
 pic_filepath = os.path.join(base_dir, pic_filename)
 dot_filepath = os.path.join(base_dir, dot_filename)
 txt_filepath = os.path.join(base_dir, txt_filename)
 json_filepath = os.path.join(base_dir, json_filename)
+difficult_words_filepath = os.path.join(base_dir, difficult_words_filename)
 
 start_index = 1
 for depth in range(1, max_height + 1):
@@ -123,7 +125,7 @@ for i, word in enumerate(all_words):
             nr_comparisons_count[count] = 1
         else:
             nr_comparisons_count[count] += 1
-        if (8 > n == count) or (n > 8 and count == n + 1):
+        if (n == 7 and count == n) or (n > 7 and count == n + 1):
             difficult_words.append(word)
             difficult_paths.append(current_path)
 
@@ -139,7 +141,18 @@ def get_edge_label(_, child):
 
 Util.clean_up_final_tree(decision_tree[0])
 
+with open(json_filepath, 'w') as f:
+    JsonExporter(indent=2).write(decision_tree[0], f)
+
 if n < 7:
+    #make indices start at 1 for images
+    for node in list(LevelOrderIter(decision_tree[0])):
+        if isinstance(node.obj, list):
+            node.obj = [node.obj[0]+1, node.obj[1]+1]
+
+        elif isinstance(node.obj, int):
+            node.obj += 1
+
     DotExporter(decision_tree[0],
                 nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj),
                 edgeattrfunc=get_edge_label).to_picture(pic_filepath)
@@ -161,5 +174,5 @@ with open(txt_filepath, 'w') as f:
     for i, w in enumerate(difficult_words):
         print("{} {} [r={}]".format(w, difficult_paths[i], Util.max_suffix_duval(w)), file=f)
 
-with open(json_filepath, 'w') as f:
+with open(difficult_words_filepath, 'w') as f:
     json.dump(difficult_words, f)

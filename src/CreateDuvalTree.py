@@ -2,13 +2,13 @@ import itertools
 import os
 from pathlib import Path
 
-from anytree import Node
+from anytree import Node, LevelOrderIter
 from anytree.exporter import DotExporter
 from tabulate import tabulate
 
-from src.Util import Util
+from Util import Util
 
-n = 5
+n = 4
 MY_UTIL = Util(n, -1)
 
 nr_comparisons_count = {}
@@ -107,6 +107,15 @@ def get_edge_label(_, child):
 
 if n < 7:
     Util.clean_up_final_tree(decision_tree[0])
+
+    #make indices start at 1 for images
+    for node in list(LevelOrderIter(decision_tree[0])):
+        if isinstance(node.obj, list):
+            node.obj = [node.obj[0]+1, node.obj[1]+1]
+
+        elif isinstance(node.obj, int):
+            node.obj += 1
+
     DotExporter(decision_tree[0],
                 nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj),
                 edgeattrfunc=get_edge_label).to_picture(pic_filepath)
