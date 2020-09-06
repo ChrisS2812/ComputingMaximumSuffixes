@@ -320,6 +320,16 @@ class Util:
 
                 return root
 
+    @staticmethod
+    def load_fuzzy_tree(n):
+        alg_file = os.path.join('Fuzzy', '{}.json'.format(n))
+
+        if os.path.exists(alg_file):
+            with open(alg_file, 'r') as f:
+                root = JsonImporter().read(f)
+
+                return root
+
     def save_algorithm(self, root, filename=None):
         self.create_dirs()
         # stop if no algorithm was found or resulting graph was already saved before
@@ -349,6 +359,13 @@ class Util:
                 DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
                     "{}/{}.dot".format(self.base_dir, filename))
 
+                #make indices start at 1 for images
+                for node in list(LevelOrderIter(root)):
+                    if isinstance(node.obj, list):
+                        node.obj = [node.obj[0]+1, node.obj[1]+1]
+
+                    elif isinstance(node.obj, int):
+                        node.obj += 1
 
                 DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
                     "{}/{}.png".format(self.base_dir, filename))
