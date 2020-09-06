@@ -103,6 +103,10 @@ def check_alg_for_root_comp(root_comp, words, comps):
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
 def check_alg(current_node, words, comps, prev_comps, first_rel_char):
+    # If only one word is left from previous comparisons we can immediately decide for this words r-value
+    if len(words) <= 1:
+        return True
+
     comparisons_left = m - current_node.depth
     subword_length_left = n - first_rel_char
 
