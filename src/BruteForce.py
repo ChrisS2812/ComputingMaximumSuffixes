@@ -3,7 +3,6 @@
 
 # This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
 # comparisons
-import copy
 import time
 import timeit
 from multiprocessing import Pool
@@ -23,7 +22,7 @@ MY_UTIL = Util(n, m)
 
 # define how many comparisons are allowed that do not extend the underlying dependency graph
 max_m = int((4 * n - 5) / 3)
-max_non_endogeneous = max_m - m
+max_non_endogeneous = max_m - n + 1
 
 
 # Generates an initial decision tree for M comparisons with given root value
@@ -122,6 +121,10 @@ def check_alg(current_node, words, comps, connected_components, first_rel_char):
         return True
 
     if not current_node.is_leaf:
+        exogeneous_comparisons_needed = connected_components.count() - 1
+        if exogeneous_comparisons_needed > comparisons_left:
+            return False
+
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps[current_node.last_checked:]:
             if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 4):
@@ -132,12 +135,9 @@ def check_alg(current_node, words, comps, connected_components, first_rel_char):
 
             current_node.obj = c_new
 
-            bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
-
             connected_components.union(c_new[0], c_new[1])
 
-            if (connected_components.count() - comparisons_left) > max_non_endogeneous:
-                return False
+            bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
 
             first_rel_char_smaller = first_rel_char
             comps_smaller = [c for c in comps if c != c_new]
