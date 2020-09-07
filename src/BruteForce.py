@@ -8,6 +8,7 @@ import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
 
+import networkx as nx
 from anytree import Node, PreOrderIter
 from python_algorithms.basic.union_find import UF
 
@@ -80,6 +81,19 @@ def check_alg_for_root_comp(root_comp, words, comps):
     cc = UF(n)
     cc.union(root_comp[0], root_comp[1])
 
+    # graph that keeps track of transitive dependencies
+    G = nx.DiGraph()
+    G.add_nodes_from(range(n))
+
+    G_smaller = G.copy()
+    G_equal = G.copy()
+    G_bigger = G.copy()
+
+    G_smaller.add_edge(root_comp[0], root_comp[1])
+    G_equal.add_edge(root_comp[0], root_comp[1])
+    G_equal.add_edge(root_comp[1], root_comp[0])
+    G_bigger.add_edge(root_comp[1], root_comp[0])
+
     # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
     # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # investigate the subword a_{i+1} a_{i+2} ... a_n
@@ -90,9 +104,9 @@ def check_alg_for_root_comp(root_comp, words, comps):
     else:
         first_rel_char_smaller = 0
 
-    if (check_alg(root_node.children[0], smaller_list, comps_new_smaller, cc, first_rel_char_smaller)
-            and check_alg(root_node.children[1], equal_list, [c for c in comps if c != root_comp], cc, 0)
-            and check_alg(root_node.children[2], bigger_list, [c for c in comps if c != root_comp], cc, 0)):
+    if (check_alg(root_node.children[0], smaller_list, comps_new_smaller, cc, G_smaller, first_rel_char_smaller)
+            and check_alg(root_node.children[1], equal_list, [c for c in comps if c != root_comp], cc, G_equal, 0)
+            and check_alg(root_node.children[2], bigger_list, [c for c in comps if c != root_comp], cc, G_bigger, 0)):
         MY_UTIL.save_current_graph(root_node.root, is_final=True)
         return root_node
     else:
@@ -102,7 +116,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
 
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
-def check_alg(current_node, words, comps, connected_components, first_rel_char):
+def check_alg(current_node, words, comps, connected_components, dep_graph, first_rel_char):
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if len(words) <= 1:
         return True
@@ -139,18 +153,77 @@ def check_alg(current_node, words, comps, connected_components, first_rel_char):
 
             bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
 
+            # prepare list of remaining comparions for each child
+            comps_smaller = [c for c in comps if c[0] != c_new]
+            comps_equal = [c for c in comps if c[0] != c_new]
+            comps_bigger = [c for c in comps if c[0] != c_new]
+
+            connected_components.union(c_new[0], c_new[1])
+
+            dep_graph_smaller = dep_graph.copy()
+            dep_graph_equal = dep_graph.copy()
+            dep_graph_bigger = dep_graph.copy()
+
+            dep_graph_smaller.add_edge(c_new[0], c_new[1])
+            dep_graph_equal.add_edge(c_new[0], c_new[1])
+            dep_graph_equal.add_edge(c_new[1], c_new[0])
+            dep_graph_bigger.add_edge(c_new[1], c_new[0])
+
+            # find nodes that are smaller/bigger than the character at c_new[0]
+            trans_smaller_bigger = nx.descendants(dep_graph_smaller, c_new[0])
+            trans_smaller_smaller = nx.descendants(dep_graph_smaller.reverse(False), c_new[0])
+            trans_smaller_smaller.add(c_new[0])
+
+            trans_bigger_bigger = nx.descendants(dep_graph_bigger, c_new[1])
+            trans_bigger_smaller = nx.descendants(dep_graph_bigger.reverse(False), c_new[1])
+            trans_bigger_smaller.add(c_new[1])
+
+            # check if prefixes can be excluded from further consideration
             first_rel_char_smaller = first_rel_char
-            comps_smaller = [c for c in comps if c != c_new]
-            if c_new[0] == first_rel_char:
+            first_rel_char_equal = first_rel_char
+            first_rel_char_bigger = first_rel_char
+
+            while first_rel_char_smaller in trans_smaller_smaller:
+                comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char_smaller]
                 first_rel_char_smaller += 1
-                comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char]
+
+            while first_rel_char_bigger in trans_bigger_smaller:
+                comps_bigger = [c for c in comps_bigger if c[0] != first_rel_char_bigger]
+                first_rel_char_bigger += 1
+
+            while True:
+                if first_rel_char_equal in trans_smaller_smaller and first_rel_char_equal not in trans_bigger_bigger:
+                    comps_equal = [c for c in comps_equal if c[0] != first_rel_char_equal]
+                    first_rel_char_equal += 1
+
+                elif first_rel_char_equal in trans_bigger_smaller and first_rel_char_equal not in trans_smaller_bigger:
+                    comps_equal = [c for c in comps_equal if c[0] != first_rel_char_equal]
+                    first_rel_char_equal += 1
+                else:
+                    break
+
+            # remove transitively determined dependencies from further consideration
+            for i in trans_smaller_smaller:
+                for j in trans_smaller_bigger:
+                    if sorted([i, j]) in comps_smaller:
+                        comps_smaller.remove(sorted([i, j]))
+                    if sorted([i, j]) in comps_equal:
+                        comps_equal.remove(sorted([i, j]))
+
+            for i in trans_bigger_smaller:
+                for j in trans_bigger_bigger:
+                    if sorted([i, j]) in comps_bigger:
+                        comps_bigger.remove(sorted([i, j]))
+                    if sorted([i, j]) in comps_equal:
+                        comps_equal.remove(sorted([i, j]))
 
             if (check_alg(current_node.children[0], smaller_list, comps_smaller, connected_components,
+                          dep_graph_smaller,
                           first_rel_char_smaller) and
-                    check_alg(current_node.children[1], equal_list, [c for c in comps if c != c_new],
-                              connected_components, first_rel_char) and
-                    check_alg(current_node.children[2], bigger_list, [c for c in comps if c != c_new],
-                              connected_components, first_rel_char)):
+                    check_alg(current_node.children[1], equal_list, comps_equal,
+                              connected_components, dep_graph_equal, first_rel_char_equal) and
+                    check_alg(current_node.children[2], bigger_list, comps_bigger,
+                              connected_components, dep_graph_bigger, first_rel_char_bigger)):
                 return True
             else:
                 # reset last_checked of all vertices below the current one as we are updating this ones comparison value
