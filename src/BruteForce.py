@@ -99,7 +99,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
     # investigate the subword a_{i+1} a_{i+2} ... a_n
     comps_new_smaller = [c for c in comps if c != root_comp]
     if root_comp[0] == 0:
-        comps_new_smaller = [c for c in comps if c[0] != 0]
+        comps_new_smaller = [c for c in comps if c != 0]
         first_rel_char_smaller = 1
     else:
         first_rel_char_smaller = 0
@@ -150,9 +150,9 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
 
             # prepare list of remaining comparions for each child
-            comps_smaller = [c for c in comps if c[0] != c_new]
-            comps_equal = [c for c in comps if c[0] != c_new]
-            comps_bigger = [c for c in comps if c[0] != c_new]
+            comps_smaller = [c for c in comps if c != c_new]
+            comps_equal = [c for c in comps if c != c_new]
+            comps_bigger = [c for c in comps if c != c_new]
 
             connected_components.union(c_new[0], c_new[1])
 
