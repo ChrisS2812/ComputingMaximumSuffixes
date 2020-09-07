@@ -330,45 +330,46 @@ class Util:
 
                 return root
 
+    def check_valid(self, root):
+        words_with_max_suffix = self.generate_all_word_with_max_suffix()
+        for word, r in words_with_max_suffix:
+            if not self.check_validity_of_word(root, word, r):
+                print("Not verified - failed for word {} ".format(word))
+                return False
+            elif word == words_with_max_suffix[-1][0]:
+                print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
+                return True
+
     def save_algorithm(self, root, filename=None):
         self.create_dirs()
         # stop if no algorithm was found or resulting graph was already saved before
         if root is None or '{}.json'.format(root.obj) in listdir(self.base_dir):
             return
-        words_with_max_suffix = self.generate_all_word_with_max_suffix()
-        comp = root.obj
 
         # Verify (fill in correct r-values in tree on the way in order to pretty print it)
-        for word, r in words_with_max_suffix:
-            if not self.check_validity_of_word(root, word, r):
-                print("Not verified - failed for word {} ".format(word))
-                break
+        if self.check_valid(root):
+            self.clean_up_final_tree(root)
 
-            elif word == words_with_max_suffix[-1][0]:
-                print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
+            if filename is None:
+                filename = '{}'.format(root.obj)
 
-                self.clean_up_final_tree(root)
+            json_path = os.path.join(self.base_dir, "{}.json".format(filename))
+            with open(json_path, 'w') as f:
+                JsonExporter(indent=2).write(root, f)
 
-                if filename is None:
-                    filename = '{}'.format(comp)
+            DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
+                "{}/{}.dot".format(self.base_dir, filename))
 
-                json_path = os.path.join(self.base_dir, "{}.json".format(filename))
-                with open(json_path, 'w') as f:
-                    JsonExporter(indent=2).write(root, f)
+            #make indices start at 1 for images
+            for node in list(LevelOrderIter(root)):
+                if isinstance(node.obj, list):
+                    node.obj = [node.obj[0]+1, node.obj[1]+1]
 
-                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
-                    "{}/{}.dot".format(self.base_dir, filename))
+                elif isinstance(node.obj, int):
+                    node.obj += 1
 
-                #make indices start at 1 for images
-                for node in list(LevelOrderIter(root)):
-                    if isinstance(node.obj, list):
-                        node.obj = [node.obj[0]+1, node.obj[1]+1]
-
-                    elif isinstance(node.obj, int):
-                        node.obj += 1
-
-                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
-                    "{}/{}.png".format(self.base_dir, filename))
+            DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                "{}/{}.png".format(self.base_dir, filename))
 
     @staticmethod
     def clean_up_final_tree(root):

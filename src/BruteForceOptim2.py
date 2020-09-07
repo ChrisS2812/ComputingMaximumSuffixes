@@ -14,8 +14,8 @@ from python_algorithms.basic.union_find import UF
 
 from Util import Util
 
-n = 7
-m = 7
+n = 6
+m = 6
 DEBUG = True
 MY_UTIL = Util(n, m)
 

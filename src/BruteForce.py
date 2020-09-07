@@ -8,23 +8,16 @@ import timeit
 from multiprocessing import Pool
 from time import gmtime, strftime
 
-import networkx as nx
 from anytree import Node, PreOrderIter
-from python_algorithms.basic.union_find import UF
 
 from Util import Util
 
-n = 6
-m = 6
+n = 8
+m = 8
 DEBUG = True
 ONLY_HIGHEST_DEBUG = True
-NR_WORKERS = 1
+NR_WORKERS = 12
 MY_UTIL = Util(n, m)
-
-# define how many comparisons are allowed that do not extend the underlying dependency graph
-max_m = int((4 * n - 5) / 3)
-max_non_endogeneous = max_m - n + 1
-
 
 # Generates an initial decision tree for M comparisons with given root value
 # Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
