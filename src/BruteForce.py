@@ -9,6 +9,7 @@ from multiprocessing import Pool
 from time import gmtime, strftime
 
 from anytree import Node, PreOrderIter
+from python_algorithms.basic.union_find import UF
 
 from Util import Util
 
@@ -73,6 +74,10 @@ def check_alg_for_root_comp(root_comp, words, comps):
     comps_equal = [c for c in comps if c != root_comp]
     comps_bigger = [c for c in comps if c != root_comp]
 
+    # union-find datastructure that is used to keep track if the underlying ordering graph is yet weakly connected
+    cc = UF(n)
+    cc.union(root_comp[0], root_comp[1])
+
     # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
     # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # investigate the subword a_{i+1} a_{i+2} ... a_n
@@ -82,9 +87,9 @@ def check_alg_for_root_comp(root_comp, words, comps):
     else:
         first_rel_char_smaller = 0
 
-    if (check_alg(root_node.children[0], smaller_list, comps_smaller, first_rel_char_smaller)
-        and check_alg(root_node.children[1], equal_list, comps_equal, 0)
-        and check_alg(root_node.children[2], bigger_list, comps_bigger, 0)):
+    if (check_alg(root_node.children[0], smaller_list, comps_smaller, first_rel_char_smaller, cc)
+        and check_alg(root_node.children[1], equal_list, comps_equal, 0, cc)
+        and check_alg(root_node.children[2], bigger_list, comps_bigger, 0, cc)):
         MY_UTIL.save_current_graph(root_node.root, is_final=True)
         return root_node
     else:
@@ -94,12 +99,15 @@ def check_alg_for_root_comp(root_comp, words, comps):
 
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
-def check_alg(current_node, words, comps, first_rel_char):
+def check_alg(current_node, words, comps, first_rel_char, connected_components):
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if not comps or len(words) <= 1:
         return True
 
     if not current_node.is_leaf:
+        exogeneous_comparisons_needed = connected_components.count() - 1
+        if exogeneous_comparisons_needed > m - current_node.depth:
+            return False
 
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps[current_node.last_checked:]:
