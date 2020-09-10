@@ -1,4 +1,4 @@
-import itertools
+import copy
 import os
 import time
 from os import listdir
@@ -61,40 +61,36 @@ class Util:
                 comp_pairs.append([i, j])
         return comp_pairs
 
-    # Create all possible words for a given N
+    # Create all possible words for a given n
     def generate_all_word_with_max_suffix(self):
-        # List of all words
-        all_words = list(itertools.product(range(self.n), repeat=self.n))
+        orders = [[{1}]]
+        for i in range(2, self.n+1):
+            new_orders = []
+            for order in orders:
+                # insert new index between each possible rank
+                for j in range(len(order) + 1):
+                    c = copy.deepcopy(order)
+                    c.insert(j, {i})
+                    new_orders.append(c)
+                # Add new index to each possible rank
+                for j, _ in enumerate(order):
+                    c = copy.deepcopy(order)
+                    c[j].add(i)
+                    new_orders.append(c)
+            orders = new_orders
 
-        # Reduce this to list of relevant words by defining two words as equivalent if all its pairwise comparisons have
-        # the same result
-        comp_result_2_word = {}
-        for w in all_words:
-            comparisons = ""
-            for i in range(self.n):
-                for j in range(i + 1, self.n):
-                    c1 = w[i]
-                    c2 = w[j]
-                    if c1 < c2:
-                        comparisons += "<"
-                    elif c1 > c2:
-                        comparisons += ">"
-                    else:
-                        comparisons += "="
-            if comparisons not in comp_result_2_word:
-                comp_result_2_word[comparisons] = w
-
-        rel_words = []
-
-        for entry in comp_result_2_word.values():
-            w = ''
-            for char in entry:
-                w += str(char)
-            rel_words.append(w)
+        words = []
+        for order in orders:
+            word = ['x' for _ in range(self.n)]
+            for i, set in enumerate(order):
+                for index in set:
+                    word[index-1] = str(i)
+            word = "".join(word)
+            words.append(word)
 
         # Create the correct maximum suffix index for each relevant word and save it together with word in tuple
         result = []
-        for w in rel_words:
+        for w in words:
             result.append((w, Util.max_suffix_duval(w)))
 
         return result
