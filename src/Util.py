@@ -89,26 +89,26 @@ class Util:
             words.append(word)
 
         # Create the correct maximum suffix index for each relevant word and save it together with word in tuple
-        result = []
+        result = [[] for _ in range(self.n)]
         for w in words:
-            result.append((w, Util.max_suffix_duval(w)))
+            ms = Util.max_suffix_duval(w)
+            result[ms].append(w)
 
         return result
 
-    @staticmethod
-    def divide_words(comp, words):
+    def divide_words(self, comp, words):
+        smaller_list = [[] for _ in range(self.n)]
+        equal_list = [[] for _ in range(self.n)]
+        bigger_list = [[] for _ in range(self.n)]
         i1, i2 = comp
-        smaller_list = []
-        equal_list = []
-        bigger_list = []
-        for entry in words:
-            curr_word = entry[0]
-            if curr_word[i1] < curr_word[i2]:
-                smaller_list.append(entry)
-            elif curr_word[i1] == curr_word[i2]:
-                equal_list.append(entry)
-            else:
-                bigger_list.append(entry)
+        for r, list in enumerate(words):
+            for word in list:
+                if word[i1] < word[i2]:
+                    smaller_list[r].append(word)
+                elif word[i1] == word[i2]:
+                    equal_list[r].append(word)
+                else:
+                    bigger_list[r].append(word)
         return bigger_list, equal_list, smaller_list
 
     # Helping function that checks whether a word in a given tree is valid
@@ -327,14 +327,16 @@ class Util:
                 return root
 
     def check_valid(self, root):
-        words_with_max_suffix = self.generate_all_word_with_max_suffix()
-        for word, r in words_with_max_suffix:
-            if not self.check_validity_of_word(root, word, r):
-                print("Not verified - failed for word {} ".format(word))
-                return False
-            elif word == words_with_max_suffix[-1][0]:
-                print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
-                return True
+        if root is not None:
+            words_with_max_suffix = self.generate_all_word_with_max_suffix()
+            for r, words in enumerate(words_with_max_suffix):
+                for word in words:
+                    if not self.check_validity_of_word(root, word, r):
+                        print("Not verified - failed for word {} ".format(word))
+                        return False
+                    elif word == words_with_max_suffix[-1][0]:
+                        print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
+                        return True
 
     def save_algorithm(self, root, filename=None):
         self.create_dirs()

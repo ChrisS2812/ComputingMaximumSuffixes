@@ -8,9 +8,7 @@ import time
 from cmath import sqrt
 from time import gmtime, strftime
 
-import networkx as nx
 from anytree import Node
-from python_algorithms.basic.union_find import UF
 
 from Util import Util
 
@@ -69,7 +67,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
                                                                                root_comp))
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
-    bigger_list, equal_list, smaller_list = Util.divide_words(root_comp, words)
+    bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(root_comp, words)
 
     # union-find datastructure that is used to keep track if the underlying ordering graph is yet weakly connected
     # cc = UF(n)
@@ -133,7 +131,7 @@ def check_alg(current_node, words, comps):
         for c_new in comps:
             current_node.obj = c_new
 
-            bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
+            bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(current_node.obj, words)
 
             # prepare list of remaining comparions for each child
             # comps_smaller = [c for c in comps if c[0] != c_new]
@@ -207,7 +205,7 @@ def check_alg(current_node, words, comps):
 
     else:
         # Conquer
-        if len(set([wwms[1] for wwms in words])) > 1:
+        if len([l for l in words if len(l) > 0]) > 1:
             # Found two distinct r-values here -> current decision tree can not be legal
             return False
         return True

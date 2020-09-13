@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import copy
 import statistics
 # This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
 # comparisons
@@ -8,8 +9,6 @@ import time
 from cmath import sqrt
 from time import gmtime, strftime
 
-import copy
-import networkx as nx
 from anytree import Node
 from python_algorithms.basic.union_find import UF
 
@@ -70,7 +69,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
                                                                                root_comp))
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
-    bigger_list, equal_list, smaller_list = Util.divide_words(root_comp, words)
+    bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(root_comp, words)
     comps_smaller = [c for c in comps if c != root_comp]
     comps_equal = [c for c in comps if c != root_comp]
     comps_bigger = [c for c in comps if c != root_comp]
@@ -136,7 +135,7 @@ def check_alg(current_node, words, comps, connected_components):
 
             current_node.obj = c_new
 
-            bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
+            bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(current_node.obj, words)
 
             # prepare list of remaining comparisons for each child
             comps_smaller = [c for c in comps if c != c_new]
@@ -216,7 +215,7 @@ def check_alg(current_node, words, comps, connected_components):
 
     else:
         # Conquer
-        if len(set([wwms[1] for wwms in words])) > 1:
+        if len([l for l in words if len(l) > 0]) > 1:
             # Found two distinct r-values here -> current decision tree can not be legal
             return False
         return True
