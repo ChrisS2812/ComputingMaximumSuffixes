@@ -6,18 +6,21 @@ import statistics
 # comparisons
 import time
 from cmath import sqrt
+from multiprocessing import Pool
 from time import gmtime, strftime
 
+import copy
 import networkx as nx
 from anytree import Node
 from python_algorithms.basic.union_find import UF
 
 from Util import Util
 
-n = 6
-m = 6
+n = 7
+m = 7
 DEBUG = True
 MY_UTIL = Util(n, m)
+NR_WORKERS = 4
 
 # define how many comparisons are allowed that do not extend the underlying dependency graph
 max_m = int((4 * n - 5) / 3)
@@ -116,6 +119,11 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
         return True
 
     comparisons_left = m - current_node.depth
+
+    exogeneous_comparisons_needed = connected_components.count() - 1
+    if exogeneous_comparisons_needed > comparisons_left:
+        return False
+
     subword_length_left = n - first_rel_char
 
     # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
@@ -125,10 +133,6 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
         return True
 
     if not current_node.is_leaf:
-        exogeneous_comparisons_needed = connected_components.count() - 1
-        if exogeneous_comparisons_needed > comparisons_left:
-            return False
-
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
             current_node.obj = c_new
@@ -140,7 +144,13 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             comps_equal = [c for c in comps if c[0] != c_new]
             comps_bigger = [c for c in comps if c[0] != c_new]
 
-            connected_components.union(c_new[0], c_new[1])
+            cc1 = copy.deepcopy(connected_components)
+            cc2 = copy.deepcopy(connected_components)
+            cc3 = copy.deepcopy(connected_components)
+
+            cc1.union(c_new[0], c_new[1])
+            cc2.union(c_new[0], c_new[1])
+            cc3.union(c_new[0], c_new[1])
 
             dep_graph_smaller = dep_graph.copy()
             dep_graph_equal = dep_graph.copy()
@@ -199,13 +209,13 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                     if sorted([i, j]) in comps_equal:
                         comps_equal.remove(sorted([i, j]))
 
-            if (check_alg(current_node.children[0], smaller_list, comps_smaller, connected_components,
+            if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1,
                           dep_graph_smaller,
                           first_rel_char_smaller) and
                     check_alg(current_node.children[1], equal_list, comps_equal,
-                              connected_components, dep_graph_equal, first_rel_char_equal) and
+                              cc2, dep_graph_equal, first_rel_char_equal) and
                     check_alg(current_node.children[2], bigger_list, comps_bigger,
-                              connected_components, dep_graph_bigger, first_rel_char_bigger)):
+                              cc3, dep_graph_bigger, first_rel_char_bigger)):
                 return True
         return False
 
@@ -219,20 +229,42 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
 
 runtimes = []
 words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
-for i in range(10):
-    start = 0  # measure running time
 
+for i in range(2):
     working_algs = []
+    if NR_WORKERS > 1:
+        # worker pool - each worker is responsible for a single root value
+        workers = Pool(processes=NR_WORKERS)
+        runtime_start = time.time()
+        try:
+            results = []
+            for comp in MY_UTIL.comp_pairs:
+                r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, MY_UTIL.comp_pairs),
+                                        callback=MY_UTIL.check_valid)
+                results.append(r)
+            for r in results:
+                r.wait()
+        except (KeyboardInterrupt, SystemExit):
+            print("except: attempting to close pool")
+            workers.terminate()
+            print("pool successfully closed")
 
-    runtime_start = time.time()
-    for comp in MY_UTIL.comp_pairs:
-        working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
+        finally:
+            print("finally: attempting to close pool")
+            workers.terminate()
+            print("pool successfully closed")
+        runtimes.append(time.time() - runtime_start)
+        print("Runtime: {}s".format(time.time() - runtime_start))
 
-    runtimes.append(time.time() - runtime_start)
-    print("Runtime: {}s".format(time.time() - runtime_start))
+    else:
+        runtime_start = time.time()
+        for comp in MY_UTIL.comp_pairs:
+            working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
 
-    for i, root in enumerate(working_algs):
-        if root is not None:
+        runtimes.append(time.time() - runtime_start)
+        print("Runtime: {}s".format(time.time() - runtime_start))
+
+        for i, root in enumerate(working_algs):
             MY_UTIL.check_valid(root)
 
 print("Mean: {}".format(sum(runtimes) / len(runtimes)))

@@ -8,6 +8,7 @@ import time
 from cmath import sqrt
 from time import gmtime, strftime
 
+import copy
 import networkx as nx
 from anytree import Node
 from python_algorithms.basic.union_find import UF
@@ -116,8 +117,11 @@ def check_alg(current_node, words, comps, connected_components):
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if not comps or len(words) <= 1:
         return True
-    #
+
     comparisons_left = m - current_node.depth
+    exogeneous_comparisons_needed = connected_components.count() - 1
+    if exogeneous_comparisons_needed > comparisons_left:
+        return False
     # subword_length_left = n - first_rel_char
 
     # # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
@@ -127,22 +131,25 @@ def check_alg(current_node, words, comps, connected_components):
     #     return True
 
     if not current_node.is_leaf:
-        exogeneous_comparisons_needed = connected_components.count() - 1
-        if exogeneous_comparisons_needed > comparisons_left:
-            return False
-
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
+
             current_node.obj = c_new
 
             bigger_list, equal_list, smaller_list = Util.divide_words(current_node.obj, words)
 
-            # prepare list of remaining comparions for each child
+            # prepare list of remaining comparisons for each child
             comps_smaller = [c for c in comps if c != c_new]
             comps_equal = [c for c in comps if c != c_new]
             comps_bigger = [c for c in comps if c != c_new]
 
-            connected_components.union(c_new[0], c_new[1])
+            cc1 = copy.deepcopy(connected_components)
+            cc2 = copy.deepcopy(connected_components)
+            cc3 = copy.deepcopy(connected_components)
+
+            cc1.union(c_new[0], c_new[1])
+            cc2.union(c_new[0], c_new[1])
+            cc3.union(c_new[0], c_new[1])
             #
             # dep_graph_smaller = dep_graph.copy()
             # dep_graph_equal = dep_graph.copy()
@@ -201,9 +208,9 @@ def check_alg(current_node, words, comps, connected_components):
             #         if sorted([i, j]) in comps_equal:
             #             comps_equal.remove(sorted([i, j]))
 
-            if (check_alg(current_node.children[0], smaller_list, comps_smaller, connected_components) and
-                    check_alg(current_node.children[1], equal_list, comps_equal, connected_components) and
-                    check_alg(current_node.children[2], bigger_list, comps_bigger, connected_components)):
+            if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1) and
+                    check_alg(current_node.children[1], equal_list, comps_equal, cc2) and
+                    check_alg(current_node.children[2], bigger_list, comps_bigger, cc3)):
                 return True
         return False
 
@@ -217,7 +224,7 @@ def check_alg(current_node, words, comps, connected_components):
 
 runtimes = []
 words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
-for i in range(10):
+for i in range(5):
     start = 0  # measure running time
 
     working_algs = []
