@@ -13,11 +13,11 @@ from anytree import Node, PreOrderIter
 
 from Util import Util
 
-n = 7
-m = 7
+n = 8
+m = 8
 DEBUG = True
 ONLY_HIGHEST_DEBUG = True
-NR_WORKERS = 4
+NR_WORKERS = 12
 MY_UTIL = Util(n, m)
 
 # Generates an initial decision tree for M comparisons with given root value
