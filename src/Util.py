@@ -114,22 +114,22 @@ class Util:
     # Helping function that checks whether a word in a given tree is valid
     def check_validity_of_word(self, current_node, word, r):
         while True:
-            if isinstance(current_node.obj, int):
-                if current_node.obj != "" and current_node.obj != r:
-                    return False
-                else:
-                    current_node.obj = r
-                    return True
+            if current_node.obj == "":
+                current_node.obj = r
 
-            i1, i2 = current_node.obj
-            c1 = word[i1]
-            c2 = word[i2]
-            if c1 < c2:
-                current_node = current_node.children[0]
-            elif c1 == c2:
-                current_node = current_node.children[1]
+            elif isinstance(current_node.obj, int):
+                if current_node.obj != r:
+                    return False
             else:
-                current_node = current_node.children[2]
+                i1, i2 = current_node.obj
+                c1 = word[i1]
+                c2 = word[i2]
+                if c1 < c2:
+                    current_node = current_node.children[0]
+                elif c1 == c2:
+                    current_node = current_node.children[1]
+                else:
+                    current_node = current_node.children[2]
 
 
     # Helping function that computes for a list of previously executed comparison and a new (current) comparison
