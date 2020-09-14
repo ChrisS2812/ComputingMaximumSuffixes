@@ -116,10 +116,13 @@ class Util:
         while True:
             if current_node.obj == "":
                 current_node.obj = r
+                return True
 
             elif isinstance(current_node.obj, int):
                 if current_node.obj != r:
                     return False
+                else:
+                    return True
             else:
                 i1, i2 = current_node.obj
                 c1 = word[i1]
@@ -269,17 +272,21 @@ class Util:
         self.create_dirs()
         ts = int(time.time())
         if is_final:
-            filename = "{}_final.json".format(root.obj)
-            final_path = os.path.join(self.checkpoint_dir, filename)
+            json_filename = "{}_final.json".format(root.obj)
+            dot_filename = "{}_final.dot".format(root.obj)
+            json_path = os.path.join(self.checkpoint_dir, json_filename)
+            dot_filepath = os.path.join(self.checkpoint_dir, dot_filename)
 
-            with open(final_path, 'w') as f:
+            with open(json_path, 'w') as f:
                 JsonExporter(indent=2).write(root, f)
 
-        elif ts - self.LAST_SAVE >= self.SAVE_INTERVAL:
-            filename = "{}_{}.json".format(root.obj, ts)
-            final_path = os.path.join(self.checkpoint_dir, filename)
+            DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(dot_filepath)
 
-            with open(final_path, 'w') as f:
+        elif ts - self.LAST_SAVE >= self.SAVE_INTERVAL:
+            json_filename = "{}_{}.json".format(root.obj, ts)
+            json_path = os.path.join(self.checkpoint_dir, json_filename)
+
+            with open(json_path, 'w') as f:
                 JsonExporter(indent=2).write(root, f)
             self.LAST_SAVE = ts
 
