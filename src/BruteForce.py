@@ -139,6 +139,10 @@ def check_alg(current_node, words, comps, first_rel_char):
         # Conquer
         nonempty_lists = [l for l in words if len(l) > 0]
         nr_nonempty = len(nonempty_lists)
+
+        if nr_nonempty < 2:
+            return True
+
         if nr_nonempty > 3:
             return False
 

@@ -332,7 +332,7 @@ class Util:
             for r, words in enumerate(words_with_max_suffix):
                 for word in words:
                     if not self.check_validity_of_word(root, word, r):
-                        print("Not verified - failed for word {} ".format(word))
+                        print("Tree for {} Not verified - failed for word {} ".format(root.obj, word))
                         return False
                     elif word == words_with_max_suffix[-1][0]:
                         print("Found Algorithm with root value {} for n={}, m={}".format(root.obj, self.n, self.m))
