@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import multiprocessing
 # This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
 # comparisons
 import time
@@ -12,11 +13,11 @@ from anytree import Node, PreOrderIter
 
 from Util import Util
 
-n = 8
-m = 8
+n = 7
+m = 7
 DEBUG = True
 ONLY_HIGHEST_DEBUG = True
-NR_WORKERS = 12
+NR_WORKERS = 4
 MY_UTIL = Util(n, m)
 
 # Generates an initial decision tree for M comparisons with given root value
@@ -64,7 +65,11 @@ def check_alg_for_root_comp(root_comp, words, comps):
         root_node = generate_algorithm(root_comp)
 
     if DEBUG:
-        print("({}) Starting checking of algorithms with root value {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+        if NR_WORKERS > 1:
+            print("({}, Thread {}) Starting checking of algorithms with root value {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()), multiprocessing.current_process().name,
+                                                                                   root_comp))
+        else:
+            print("({}) Starting checking of algorithms with root value {}".format(strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                                                                                root_comp))
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
