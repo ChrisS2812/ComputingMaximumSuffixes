@@ -37,7 +37,7 @@ def compute_max_prefix_sandwich(word):
                     break
     return r
 
-for word, r in Util(7, -1).generate_all_word_with_max_suffix():
+for word, r in Util(7, -1).generate_all_words():
     r_sandwich = compute_max_prefix_sandwich(word)
     if r_sandwich != r:
         print("Sandwich Algorithm failed for {} [r={}, r_actual={}".format(word, r_sandwich, r))

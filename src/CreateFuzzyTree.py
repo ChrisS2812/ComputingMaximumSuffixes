@@ -145,10 +145,12 @@ with open(json_filepath, 'w') as f:
     JsonExporter(indent=2).write(decision_tree[0], f)
 
 if n < 7:
+    Util.clean_up_final_tree(decision_tree[0])
+
     #make indices start at 1 for images
     for node in list(LevelOrderIter(decision_tree[0])):
-        if isinstance(node.obj, list):
-            node.obj = [node.obj[0]+1, node.obj[1]+1]
+        if isinstance(node.obj, list) or isinstance(node.obj, tuple):
+            node.obj = (node.obj[0]+1, node.obj[1]+1)
 
         elif isinstance(node.obj, int):
             node.obj += 1

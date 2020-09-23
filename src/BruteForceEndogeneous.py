@@ -10,6 +10,7 @@ from cmath import sqrt
 from time import gmtime, strftime
 
 from anytree import Node
+from bitarray._bitarray import bitarray
 from python_algorithms.basic.union_find import UF
 
 from Util import Util
@@ -18,11 +19,14 @@ n = 6
 m = 6
 DEBUG = True
 MY_UTIL = Util(n, m)
-
+ALL_COMPS = MY_UTIL.comp_pairs
+NR_COMPS = len(ALL_COMPS)
 # define how many comparisons are allowed that do not extend the underlying dependency graph
 max_m = int((4 * n - 5) / 3)
 max_non_endogeneous = max_m - n + 1
 
+CC_TIME = 0
+NR_CALLS = 0
 
 # Generates an initial decision tree for M comparisons with given root value
 # Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
@@ -61,7 +65,9 @@ def generate_algorithm(root_value):
 
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
-def check_alg_for_root_comp(root_comp, words, comps):
+def check_alg_for_root_comp(comp_index, words, c: bitarray):
+    global CC_TIME
+    root_comp = ALL_COMPS[comp_index]
     root_node = generate_algorithm(root_comp)
 
     if DEBUG:
@@ -70,13 +76,17 @@ def check_alg_for_root_comp(root_comp, words, comps):
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
     bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(root_comp, words)
-    comps_smaller = [c for c in comps if c != root_comp]
-    comps_equal = [c for c in comps if c != root_comp]
-    comps_bigger = [c for c in comps if c != root_comp]
+    c[comp_index] = False
+    c_smaller = c.copy()
+    c_equal = c.copy()
+    c_bigger = c.copy()
     # union-find datastructure that is used to keep track if the underlying ordering graph is yet weakly connected
+
+    start = time.time()
     cc = UF(n)
     cc.union(root_comp[0], root_comp[1])
-    #
+    CC_TIME += (time.time() - start)
+#
     # # graph that keeps track of transitive dependencies
     # G = nx.DiGraph()
     # G.add_nodes_from(range(n))
@@ -93,34 +103,36 @@ def check_alg_for_root_comp(root_comp, words, comps):
     # # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
     # # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # # investigate the subword a_{i+1} a_{i+2} ... a_n
-    # comps_new_smaller = [c for c in comps if c != root_comp]
-    # if root_comp[0] == 0:
-    #     comps_new_smaller = [c for c in comps if c[0] != 0]
-    #     first_rel_char_smaller = 1
-    # else:
-    #     first_rel_char_smaller = 0
+    if root_comp[0] == 0:
+        c_smaller[0:n-1:1] = False
+        first_rel_char_smaller = 1
+    else:
+        first_rel_char_smaller = 0
 
-    if (check_alg(root_node.children[0], smaller_list, comps_smaller, cc)
-            and check_alg(root_node.children[1], equal_list, comps_equal, cc)
-            and check_alg(root_node.children[2], bigger_list, comps_bigger, cc)):
-        MY_UTIL.save_current_graph(root_node.root, is_final=True)
+    if (check_alg(root_node.children[0], smaller_list, c_smaller, first_rel_char_smaller, cc)
+            and check_alg(root_node.children[1], equal_list, c_equal, 0, cc)
+            and check_alg(root_node.children[2], bigger_list, c_bigger, 0, cc)):
         return root_node
     else:
-        MY_UTIL.save_current_graph(root_node.root, is_final=True)
         return
 
 
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
-def check_alg(current_node, words, comps, connected_components):
+def check_alg(current_node, words, c: bitarray, first_rel_char, connected_components):
+    global CC_TIME, NR_CALLS
+    NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
-    if not comps or len(words) <= 1:
+    if not c.any() or len([w for w in words if len(w) > 0]) <= 1:
         return True
-
+    #
+    start = time.time()
     comparisons_left = m - current_node.depth
     exogeneous_comparisons_needed = connected_components.count() - 1
     if exogeneous_comparisons_needed > comparisons_left:
         return False
+    CC_TIME += (time.time()-start)
+
     # subword_length_left = n - first_rel_char
 
     # # If, for a remaining subword of length n' that contains the max. suffix, we know that T(n') is less or equal
@@ -129,26 +141,41 @@ def check_alg(current_node, words, comps, connected_components):
     #     Util.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
     #     return True
 
-    if not current_node.is_leaf:
+    if current_node.depth < m-1:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
-        for c_new in comps:
-
+        for i in [i for i, bit in enumerate(c) if bit]:
+            c_new = ALL_COMPS[i]
             current_node.obj = c_new
-
             bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(current_node.obj, words)
-
-            # prepare list of remaining comparisons for each child
-            comps_smaller = [c for c in comps if c != c_new]
-            comps_equal = [c for c in comps if c != c_new]
-            comps_bigger = [c for c in comps if c != c_new]
-
+            start = time.time()
             cc1 = copy.deepcopy(connected_components)
             cc2 = copy.deepcopy(connected_components)
             cc3 = copy.deepcopy(connected_components)
-
             cc1.union(c_new[0], c_new[1])
             cc2.union(c_new[0], c_new[1])
             cc3.union(c_new[0], c_new[1])
+            CC_TIME += (time.time() - start)
+
+            # prepare list of remaining comparions for each child
+            c_smaller = c.copy()
+            c_equal = c.copy()
+            c_bigger = c.copy()
+
+            c_smaller[i] = False
+            c_equal[i] = False
+            c_bigger[i] = False
+
+            first_rel_char_smaller = first_rel_char
+            if c_new[0] == first_rel_char:
+                start = 0
+                for i in range(first_rel_char):
+                    start += n-1-i
+                end = start + n - 1 - first_rel_char
+
+                c_smaller[start:end:1] = False
+                first_rel_char_smaller += 1
+            #
+            # connected_components.union(c_new[0], c_new[1])
             #
             # dep_graph_smaller = dep_graph.copy()
             # dep_graph_equal = dep_graph.copy()
@@ -207,33 +234,73 @@ def check_alg(current_node, words, comps, connected_components):
             #         if sorted([i, j]) in comps_equal:
             #             comps_equal.remove(sorted([i, j]))
 
-            if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1) and
-                    check_alg(current_node.children[1], equal_list, comps_equal, cc2) and
-                    check_alg(current_node.children[2], bigger_list, comps_bigger, cc3)):
+            if (check_alg(current_node.children[0], smaller_list, c_smaller, first_rel_char_smaller, cc1) and
+                    check_alg(current_node.children[1], equal_list, c_equal, first_rel_char, cc2) and
+                    check_alg(current_node.children[2], bigger_list, c_bigger, first_rel_char, cc3)):
                 return True
         return False
 
     else:
         # Conquer
-        if len([l for l in words if len(l) > 0]) > 1:
-            # Found two distinct r-values here -> current decision tree can not be legal
+        nonempty_lists = [l for l in words if len(l) > 0]
+        nr_nonempty = len(nonempty_lists)
+        if nr_nonempty > 3:
             return False
-        return True
+
+        for index in [i for i, bit in enumerate(c) if bit]:
+            c_new = ALL_COMPS[index]
+            i, j = c_new
+            results = []
+            for l in nonempty_lists:
+                if l[0][i] < l[0][j]:
+                    results.append("<")
+                elif l[0][i] == l[0][j]:
+                    results.append("=")
+                else:
+                    results.append(">")
+            if len(results) > len(set(results)):
+                continue
+            else:
+                final_results = [set(r) for r in results]
+                for k in range(nr_nonempty):
+                    for word in nonempty_lists[k]:
+                        if word[i] < word[j]:
+                            final_results[k].add("<")
+                        elif word[i] == word[j]:
+                            final_results[k].add("=")
+                        else:
+                            final_results[k].add(">")
+
+                nr_results = 0
+                for r in final_results:
+                    nr_results += len(r)
+                if nr_results > 3:
+                    continue
+                else:
+                    current_node.obj = c_new
+                    return True
+        return False
 
 
 runtimes = []
-words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
-for i in range(5):
+words_with_max_suffix = MY_UTIL.generate_all_words()
+for i in range(10):
     start = 0  # measure running time
 
     working_algs = []
 
     runtime_start = time.time()
-    for comp in MY_UTIL.comp_pairs:
-        working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
+    for comp_index in range(NR_COMPS):
+        c = bitarray()
+        c.extend(True for _ in range(len(MY_UTIL.comp_pairs)))
+        working_algs.append(check_alg_for_root_comp(comp_index, words_with_max_suffix, c))
 
     runtimes.append(time.time() - runtime_start)
     print("Runtime: {}s".format(time.time() - runtime_start))
+    print("CC time: {}s".format(CC_TIME))
+    print("Nr calls: {}".format(NR_CALLS))
+
+    CC_TIME = 0
 
     for i, root in enumerate(working_algs):
         if root is not None:

@@ -5,7 +5,7 @@ from os import listdir
 from os.path import isfile, join
 from pathlib import Path
 
-from anytree import LevelOrderIter, PreOrderIter
+from anytree import LevelOrderIter, PreOrderIter, Node
 from anytree.exporter import JsonExporter, DotExporter
 from anytree.importer import JsonImporter
 
@@ -62,7 +62,7 @@ class Util:
         return comp_pairs
 
     # Create all possible words for a given n
-    def generate_all_word_with_max_suffix(self):
+    def generate_all_words(self):
         orders = [[{1}]]
         for i in range(2, self.n+1):
             new_orders = []
@@ -124,6 +124,11 @@ class Util:
                 else:
                     return True
             else:
+                if len(current_node.children) == 0:
+                    Node(current_node.name * 3 + 1, obj="", parent=current_node)
+                    Node(current_node.name * 3 + 2, obj="", parent=current_node)
+                    Node(current_node.name * 3 + 3, obj="", parent=current_node)
+
                 i1, i2 = current_node.obj
                 c1 = word[i1]
                 c2 = word[i2]
@@ -335,8 +340,10 @@ class Util:
                 return root
 
     def check_valid(self, root):
+        for l in root.leaves:
+            l.obj = ""
         if root is not None:
-            words_with_max_suffix = self.generate_all_word_with_max_suffix()
+            words_with_max_suffix = self.generate_all_words()
             for r, words in enumerate(words_with_max_suffix):
                 for word in words:
                     if not self.check_validity_of_word(root, word, r):
@@ -349,7 +356,7 @@ class Util:
     def save_algorithm(self, root, filename=None):
         self.create_dirs()
         # stop if no algorithm was found or resulting graph was already saved before
-        if root is None or '{}.json'.format(root.obj) in listdir(self.base_dir):
+        if root is None or (filename is None and '{}.json'.format(root.obj) in listdir(self.base_dir)):
             return
 
         # Verify (fill in correct r-values in tree on the way in order to pretty print it)
@@ -373,9 +380,9 @@ class Util:
 
                 elif isinstance(node.obj, int):
                     node.obj += 1
-
-            DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
-                "{}/{}.png".format(self.base_dir, filename))
+            if self.n < 7:
+                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                    "{}/{}.png".format(self.base_dir, filename))
 
     @staticmethod
     def clean_up_final_tree(root):

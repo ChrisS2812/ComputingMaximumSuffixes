@@ -110,8 +110,8 @@ if n < 7:
 
     #make indices start at 1 for images
     for node in list(LevelOrderIter(decision_tree[0])):
-        if isinstance(node.obj, list):
-            node.obj = [node.obj[0]+1, node.obj[1]+1]
+        if isinstance(node.obj, list) or isinstance(node.obj, tuple):
+            node.obj = (node.obj[0]+1, node.obj[1]+1)
 
         elif isinstance(node.obj, int):
             node.obj += 1

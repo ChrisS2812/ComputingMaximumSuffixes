@@ -214,7 +214,7 @@ def check_alg(current_node, words, comps):
 
 
 runtimes = []
-words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
+words_with_max_suffix = MY_UTIL.generate_all_words()
 for i in range(1):
     start = 0  # measure running time
 

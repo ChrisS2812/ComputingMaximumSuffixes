@@ -26,6 +26,9 @@ NR_WORKERS = 4
 max_m = int((4 * n - 5) / 3)
 max_non_endogeneous = max_m - n + 1
 
+GRAPH_COPY_TIME = 0
+TRANS_COMP_TIME = 0
+NR_CALLS = 0
 
 # Generates an initial decision tree for M comparisons with given root value
 # Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
@@ -65,6 +68,7 @@ def generate_algorithm(root_value):
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
 def check_alg_for_root_comp(root_comp, words, comps):
+    global GRAPH_COPY_TIME
     root_node = generate_algorithm(root_comp)
 
     if DEBUG:
@@ -82,9 +86,11 @@ def check_alg_for_root_comp(root_comp, words, comps):
     G = nx.DiGraph()
     G.add_nodes_from(range(n))
 
+    start = time.time()
     G_smaller = G.copy()
     G_equal = G.copy()
     G_bigger = G.copy()
+    GRAPH_COPY_TIME += (time.time()-start)
 
     G_smaller.add_edge(root_comp[0], root_comp[1])
     G_equal.add_edge(root_comp[0], root_comp[1])
@@ -114,6 +120,8 @@ def check_alg_for_root_comp(root_comp, words, comps):
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
 def check_alg(current_node, words, comps, connected_components, dep_graph, first_rel_char):
+    global GRAPH_COPY_TIME, TRANS_COMP_TIME, NR_CALLS
+    NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if not comps or len(words) <= 1:
         return True
@@ -132,7 +140,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
         Util.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
         return True
 
-    if not current_node.is_leaf:
+    if current_node.depth < m-1:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
             current_node.obj = c_new
@@ -152,10 +160,13 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             cc2.union(c_new[0], c_new[1])
             cc3.union(c_new[0], c_new[1])
 
+            start = time.time()
             dep_graph_smaller = dep_graph.copy()
             dep_graph_equal = dep_graph.copy()
             dep_graph_bigger = dep_graph.copy()
+            GRAPH_COPY_TIME += (time.time()-start)
 
+            start = time.time()
             dep_graph_smaller.add_edge(c_new[0], c_new[1])
             dep_graph_equal.add_edge(c_new[0], c_new[1])
             dep_graph_equal.add_edge(c_new[1], c_new[0])
@@ -208,6 +219,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                         comps_bigger.remove(sorted([i, j]))
                     if sorted([i, j]) in comps_equal:
                         comps_equal.remove(sorted([i, j]))
+            TRANS_COMP_TIME += (time.time()-start)
 
             if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1,
                           dep_graph_smaller,
@@ -221,16 +233,53 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
 
     else:
         # Conquer
-        if len([l for l in words if len(l) > 0]) > 1:
-            # Found two distinct r-values here -> current decision tree can not be legal
+        nonempty_lists = [l for l in words if len(l) > 0]
+        nr_nonempty = len(nonempty_lists)
+
+        if nr_nonempty < 2:
+            return True
+
+        if nr_nonempty > 3:
             return False
-        return True
+
+        for c in comps:
+            i, j = c
+            results = []
+            for l in nonempty_lists:
+                if l[0][i] < l[0][j]:
+                    results.append("<")
+                elif l[0][i] == l[0][j]:
+                    results.append("=")
+                else:
+                    results.append(">")
+            if len(results) > len(set(results)):
+                continue
+            else:
+                final_results = [set(r) for r in results]
+                for k in range(nr_nonempty):
+                    for word in nonempty_lists[k]:
+                        if word[i] < word[j]:
+                            final_results[k].add("<")
+                        elif word[i] == word[j]:
+                            final_results[k].add("=")
+                        else:
+                            final_results[k].add(">")
+
+                nr_results = 0
+                for r in final_results:
+                    nr_results += len(r)
+                if nr_results > 3:
+                    continue
+                else:
+                    current_node.obj = c
+                    return True
+        return False
 
 
 runtimes = []
-words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
+words_with_max_suffix = MY_UTIL.generate_all_words()
 
-for i in range(2):
+for i in range(1):
     working_algs = []
     if NR_WORKERS > 1:
         # worker pool - each worker is responsible for a single root value
@@ -263,6 +312,11 @@ for i in range(2):
 
         runtimes.append(time.time() - runtime_start)
         print("Runtime: {}s".format(time.time() - runtime_start))
+        print("Graph copy time: {}s".format(GRAPH_COPY_TIME))
+        print("Trans comp time: {}s".format(TRANS_COMP_TIME))
+        print("Nr calls: {}".format(NR_CALLS))
+        GRAPH_COPY_TIME = 0
+        TRANS_COMP_TIME = 0
 
         for i, root in enumerate(working_algs):
             MY_UTIL.check_valid(root)

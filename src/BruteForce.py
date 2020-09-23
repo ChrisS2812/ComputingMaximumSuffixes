@@ -185,7 +185,7 @@ def check_alg(current_node, words, comps, first_rel_char):
         return False
 
 
-words_with_max_suffix = MY_UTIL.generate_all_word_with_max_suffix()
+words_with_max_suffix = MY_UTIL.generate_all_words()
 
 start = 0  # measure running time
 

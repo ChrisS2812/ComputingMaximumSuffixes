@@ -62,7 +62,7 @@ def compute_max_prefix_find_max(word):
     return max_suffix_candidates[0]
 
 
-for word, r in Util(7, -1).generate_all_word_with_max_suffix():
+for word, r in Util(7, -1).generate_all_words():
     r_max = compute_max_prefix_find_max(word)
     if r_max != r:
         print("Find Max Algorithm failed for {} [r={}, r_actual={}".format(word, r_max, r))

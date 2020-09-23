@@ -52,7 +52,7 @@ def compute_max_prefix_greedy(word):
                 max_is_expanding = True
     return r
 
-for word, r in Util(6, -1).generate_all_word_with_max_suffix():
+for word, r in Util(6, -1).generate_all_words():
     r_sandwich = compute_max_prefix_greedy(word)
     if r_sandwich != r:
         print("Greedy Algorithm failed for {} [r={}, r_actual={}".format(word, r_sandwich, r))
