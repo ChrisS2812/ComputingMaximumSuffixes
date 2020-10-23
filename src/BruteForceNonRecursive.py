@@ -15,7 +15,7 @@ from bitarray._bitarray import bitarray
 from Util import Util
 
 n = 5
-m = 4
+m = 5
 DEBUG = True
 MY_UTIL = Util(n, m)
 
@@ -35,13 +35,14 @@ for i in range(m-1):
     inner_node_offset += 3 ** i
 
 critical_words = None
+NR_COMP_EVALS = 0
 
 # Generates an initial decision tree for M comparisons with given root value
 # Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
 def generate_algorithm(root_value):
     alg = []
     current_index = 0
-    for ga_i in range(m):
+    for ga_i in range(m+1):
         if ga_i == 0:
             # Root Node
             root_c = NR_COMPS * bitarray('1')
@@ -51,6 +52,12 @@ def generate_algorithm(root_value):
             root_node = Node(current_index, obj=root_value, c=root_c, rho_min=rho_min)
             alg.append(root_node)
             current_index += 1
+        elif ga_i == m:
+            # Leaf Nodes
+            for ga_j in range(3 ** m):
+                parent = alg[(current_index - 1) // 3]
+                alg.append(Node(current_index, obj="", parent=parent))
+                current_index += 1
         else:
             for ga_j in range(3 ** ga_i):
                 parent = alg[(current_index - 1) // 3]
@@ -93,7 +100,7 @@ def check_alg_for_root_comp(root_comp):
                 return
 
 def check_valid(alg):
-    global critical_words
+    global critical_words, NR_COMP_EVALS
     if critical_words:
         words = critical_words
     else:
@@ -108,6 +115,7 @@ def check_valid(alg):
             i1, i2 = current_node.obj
             c1 = w[i1]
             c2 = w[i2]
+            NR_COMP_EVALS += 1
             if c1 < c2:
                 current_node = current_node.children[0]
             elif c1 == c2:
@@ -145,6 +153,7 @@ def check_valid(alg):
                     final_results = [set(r) for r in results]
                     for k in range(nr_hs):
                         for word in hs[k]:
+                            NR_COMP_EVALS += 1
                             if word[i] < word[j]:
                                 final_results[k].add("<")
                             elif word[i] == word[j]:
@@ -212,7 +221,7 @@ def generate_next(result):
 
 runtimes = []
 words_with_max_suffix = MY_UTIL.generate_all_words()
-for i in range(10):
+for i in range(1):
     start = 0  # measure running time
 
     working_algs = []
@@ -227,6 +236,8 @@ for i in range(10):
     for i, alg in enumerate(working_algs):
         if alg is not None:
             MY_UTIL.check_valid(alg[0])
+    print("Nr comp. evals. on words: {}".format(NR_COMP_EVALS))
+    NR_COMP_EVALS = 0
 
 print("Mean: {}".format(sum(runtimes) / len(runtimes)))
 print("Standarddeviation: {}".format(statistics.stdev(runtimes)))

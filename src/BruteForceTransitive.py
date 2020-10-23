@@ -20,7 +20,7 @@ n = 7
 m = 7
 DEBUG = True
 MY_UTIL = Util(n, m)
-NR_WORKERS = 4
+NR_WORKERS = 1
 
 # define how many comparisons are allowed that do not extend the underlying dependency graph
 max_m = int((4 * n - 5) / 3)
@@ -140,7 +140,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
         Util.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
         return True
 
-    if current_node.depth < m-1:
+    if not current_node.is_leaf:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
             current_node.obj = c_new
@@ -233,47 +233,10 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
 
     else:
         # Conquer
-        nonempty_lists = [l for l in words if len(l) > 0]
-        nr_nonempty = len(nonempty_lists)
-
-        if nr_nonempty < 2:
-            return True
-
-        if nr_nonempty > 3:
+        if len([l for l in words if len(l) > 0]) > 1:
+            # Found two distinct r-values here -> current decision tree can not be legal
             return False
-
-        for c in comps:
-            i, j = c
-            results = []
-            for l in nonempty_lists:
-                if l[0][i] < l[0][j]:
-                    results.append("<")
-                elif l[0][i] == l[0][j]:
-                    results.append("=")
-                else:
-                    results.append(">")
-            if len(results) > len(set(results)):
-                continue
-            else:
-                final_results = [set(r) for r in results]
-                for k in range(nr_nonempty):
-                    for word in nonempty_lists[k]:
-                        if word[i] < word[j]:
-                            final_results[k].add("<")
-                        elif word[i] == word[j]:
-                            final_results[k].add("=")
-                        else:
-                            final_results[k].add(">")
-
-                nr_results = 0
-                for r in final_results:
-                    nr_results += len(r)
-                if nr_results > 3:
-                    continue
-                else:
-                    current_node.obj = c
-                    return True
-        return False
+        return True
 
 
 runtimes = []
@@ -315,11 +278,13 @@ for i in range(1):
         print("Graph copy time: {}s".format(GRAPH_COPY_TIME))
         print("Trans comp time: {}s".format(TRANS_COMP_TIME))
         print("Nr calls: {}".format(NR_CALLS))
+        NR_CALLS = 0
         GRAPH_COPY_TIME = 0
         TRANS_COMP_TIME = 0
 
         for i, root in enumerate(working_algs):
-            MY_UTIL.check_valid(root)
+            if root is not None:
+                MY_UTIL.check_valid(root)
 
 print("Mean: {}".format(sum(runtimes) / len(runtimes)))
 print("Standarddeviation: {}".format(statistics.stdev(runtimes)))

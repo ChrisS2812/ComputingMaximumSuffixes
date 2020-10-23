@@ -15,8 +15,8 @@ from python_algorithms.basic.union_find import UF
 
 from Util import Util
 
-n = 6
-m = 6
+n = 7
+m = 7
 DEBUG = True
 MY_UTIL = Util(n, m)
 ALL_COMPS = MY_UTIL.comp_pairs
@@ -27,6 +27,7 @@ max_non_endogeneous = max_m - n + 1
 
 CC_TIME = 0
 NR_CALLS = 0
+
 
 # Generates an initial decision tree for M comparisons with given root value
 # Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
@@ -86,7 +87,7 @@ def check_alg_for_root_comp(comp_index, words, c: bitarray):
     cc = UF(n)
     cc.union(root_comp[0], root_comp[1])
     CC_TIME += (time.time() - start)
-#
+    #
     # # graph that keeps track of transitive dependencies
     # G = nx.DiGraph()
     # G.add_nodes_from(range(n))
@@ -104,7 +105,7 @@ def check_alg_for_root_comp(comp_index, words, c: bitarray):
     # # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # # investigate the subword a_{i+1} a_{i+2} ... a_n
     if root_comp[0] == 0:
-        c_smaller[0:n-1:1] = False
+        c_smaller[0:n - 1:1] = False
         first_rel_char_smaller = 1
     else:
         first_rel_char_smaller = 0
@@ -131,7 +132,7 @@ def check_alg(current_node, words, c: bitarray, first_rel_char, connected_compon
     exogeneous_comparisons_needed = connected_components.count() - 1
     if exogeneous_comparisons_needed > comparisons_left:
         return False
-    CC_TIME += (time.time()-start)
+    CC_TIME += (time.time() - start)
 
     # subword_length_left = n - first_rel_char
 
@@ -141,7 +142,7 @@ def check_alg(current_node, words, c: bitarray, first_rel_char, connected_compon
     #     Util.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
     #     return True
 
-    if current_node.depth < m-1:
+    if not current_node.is_leaf:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for i in [i for i, bit in enumerate(c) if bit]:
             c_new = ALL_COMPS[i]
@@ -169,7 +170,7 @@ def check_alg(current_node, words, c: bitarray, first_rel_char, connected_compon
             if c_new[0] == first_rel_char:
                 start = 0
                 for i in range(first_rel_char):
-                    start += n-1-i
+                    start += n - 1 - i
                 end = start + n - 1 - first_rel_char
 
                 c_smaller[start:end:1] = False
@@ -242,49 +243,15 @@ def check_alg(current_node, words, c: bitarray, first_rel_char, connected_compon
 
     else:
         # Conquer
-        nonempty_lists = [l for l in words if len(l) > 0]
-        nr_nonempty = len(nonempty_lists)
-        if nr_nonempty > 3:
+        if len([l for l in words if len(l) > 0]) > 1:
+            # Found two distinct r-values here -> current decision tree can not be legal
             return False
-
-        for index in [i for i, bit in enumerate(c) if bit]:
-            c_new = ALL_COMPS[index]
-            i, j = c_new
-            results = []
-            for l in nonempty_lists:
-                if l[0][i] < l[0][j]:
-                    results.append("<")
-                elif l[0][i] == l[0][j]:
-                    results.append("=")
-                else:
-                    results.append(">")
-            if len(results) > len(set(results)):
-                continue
-            else:
-                final_results = [set(r) for r in results]
-                for k in range(nr_nonempty):
-                    for word in nonempty_lists[k]:
-                        if word[i] < word[j]:
-                            final_results[k].add("<")
-                        elif word[i] == word[j]:
-                            final_results[k].add("=")
-                        else:
-                            final_results[k].add(">")
-
-                nr_results = 0
-                for r in final_results:
-                    nr_results += len(r)
-                if nr_results > 3:
-                    continue
-                else:
-                    current_node.obj = c_new
-                    return True
-        return False
+        return True
 
 
 runtimes = []
 words_with_max_suffix = MY_UTIL.generate_all_words()
-for i in range(10):
+for i in range(1):
     start = 0  # measure running time
 
     working_algs = []
@@ -299,6 +266,7 @@ for i in range(10):
     print("Runtime: {}s".format(time.time() - runtime_start))
     print("CC time: {}s".format(CC_TIME))
     print("Nr calls: {}".format(NR_CALLS))
+    NR_CALLS = 0
 
     CC_TIME = 0
 

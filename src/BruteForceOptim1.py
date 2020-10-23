@@ -12,14 +12,16 @@ from anytree import Node
 
 from Util import Util
 
-n = 6
-m = 6
+n = 5
+m = 5
 DEBUG = True
 MY_UTIL = Util(n, m)
 
 # define how many comparisons are allowed that do not extend the underlying dependency graph
 max_m = int((4 * n - 5) / 3)
 max_non_endogeneous = max_m - n + 1
+
+NR_CALLS = 0
 
 
 # Generates an initial decision tree for M comparisons with given root value
@@ -111,6 +113,8 @@ def check_alg_for_root_comp(root_comp, words, comps):
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
 def check_alg(current_node, words, comps):
+    global NR_CALLS
+    NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if not comps or len(words) <= 1:
         return True
@@ -215,7 +219,7 @@ def check_alg(current_node, words, comps):
 
 runtimes = []
 words_with_max_suffix = MY_UTIL.generate_all_words()
-for i in range(1):
+for i in range(10):
     start = 0  # measure running time
 
     working_algs = []
@@ -226,7 +230,8 @@ for i in range(1):
 
     runtimes.append(time.time() - runtime_start)
     print("Runtime: {}s".format(time.time() - runtime_start))
-
+    print("Nr. calls: {}".format(NR_CALLS))
+    NR_CALLS = 0
     for i, root in enumerate(working_algs):
         if root is not None:
             MY_UTIL.check_valid(root)
