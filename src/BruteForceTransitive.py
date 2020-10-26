@@ -19,6 +19,7 @@ from Util import Util
 n = 7
 m = 7
 DEBUG = True
+ONLY_HIGHEST_DEBUG = True
 MY_UTIL = Util(n, m)
 NR_WORKERS = 1
 
@@ -123,7 +124,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
     global GRAPH_COPY_TIME, TRANS_COMP_TIME, NR_CALLS
     NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
-    if not comps or len(words) <= 1:
+    if not comps or len([l for l in words if len(l) > 0]) <= 1:
         return True
 
     comparisons_left = m - current_node.depth
@@ -143,14 +144,20 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
     if not current_node.is_leaf:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
+            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 13):
+                print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
+                                                                          strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                                                          current_node.name,
+                                                                          current_node.obj, c_new))
+
             current_node.obj = c_new
 
             bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(current_node.obj, words)
 
             # prepare list of remaining comparions for each child
-            comps_smaller = [c for c in comps if c[0] != c_new]
-            comps_equal = [c for c in comps if c[0] != c_new]
-            comps_bigger = [c for c in comps if c[0] != c_new]
+            comps_smaller = [c for c in comps if c != c_new]
+            comps_equal = [c for c in comps if c != c_new]
+            comps_bigger = [c for c in comps if c != c_new]
 
             cc1 = copy.deepcopy(connected_components)
             cc2 = copy.deepcopy(connected_components)
@@ -173,37 +180,17 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             dep_graph_bigger.add_edge(c_new[1], c_new[0])
 
             # find nodes that are smaller/bigger than the character at c_new[0]
-            trans_smaller_bigger = nx.descendants(dep_graph_smaller, c_new[0])
+            trans_smaller_bigger = nx.descendants(dep_graph_smaller, c_new[1])
+            trans_smaller_bigger.add(c_new[1])
+
             trans_smaller_smaller = nx.descendants(dep_graph_smaller.reverse(False), c_new[0])
             trans_smaller_smaller.add(c_new[0])
 
-            trans_bigger_bigger = nx.descendants(dep_graph_bigger, c_new[1])
+            trans_bigger_bigger = nx.descendants(dep_graph_bigger, c_new[0])
+            trans_bigger_bigger.add(c_new[0])
+
             trans_bigger_smaller = nx.descendants(dep_graph_bigger.reverse(False), c_new[1])
             trans_bigger_smaller.add(c_new[1])
-
-            # check if prefixes can be excluded from further consideration
-            first_rel_char_smaller = first_rel_char
-            first_rel_char_equal = first_rel_char
-            first_rel_char_bigger = first_rel_char
-
-            while first_rel_char_smaller in trans_smaller_smaller:
-                comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char_smaller]
-                first_rel_char_smaller += 1
-
-            while first_rel_char_bigger in trans_bigger_smaller:
-                comps_bigger = [c for c in comps_bigger if c[0] != first_rel_char_bigger]
-                first_rel_char_bigger += 1
-
-            while True:
-                if first_rel_char_equal in trans_smaller_smaller and first_rel_char_equal not in trans_bigger_bigger:
-                    comps_equal = [c for c in comps_equal if c[0] != first_rel_char_equal]
-                    first_rel_char_equal += 1
-
-                elif first_rel_char_equal in trans_bigger_smaller and first_rel_char_equal not in trans_smaller_bigger:
-                    comps_equal = [c for c in comps_equal if c[0] != first_rel_char_equal]
-                    first_rel_char_equal += 1
-                else:
-                    break
 
             # remove transitively determined dependencies from further consideration
             for i in trans_smaller_smaller:
@@ -221,9 +208,25 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                         comps_equal.remove(sorted([i, j]))
             TRANS_COMP_TIME += (time.time()-start)
 
+            # check if prefixes can be excluded from further consideration
+            first_rel_char_smaller = first_rel_char
+            first_rel_char_equal = first_rel_char
+            first_rel_char_bigger = first_rel_char
+
+            while nx.descendants(dep_graph_smaller, first_rel_char_smaller) - nx.descendants(dep_graph_smaller.reverse(True), first_rel_char_smaller):
+                first_rel_char_smaller += 1
+            comps_smaller = [c for c in comps_smaller if c[0] >= first_rel_char_smaller]
+
+            while nx.descendants(dep_graph_equal, first_rel_char_equal) - nx.descendants(dep_graph_equal.reverse(True), first_rel_char_equal):
+                first_rel_char_equal += 1
+            comps_equal = [c for c in comps_equal if c[0] >= first_rel_char_equal]
+
+            while nx.descendants(dep_graph_bigger, first_rel_char_bigger) - nx.descendants(dep_graph_bigger.reverse(True), first_rel_char_bigger):
+                first_rel_char_bigger += 1
+            comps_bigger = [c for c in comps_bigger if c[0] >= first_rel_char_bigger]
+
             if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1,
-                          dep_graph_smaller,
-                          first_rel_char_smaller) and
+                          dep_graph_smaller, first_rel_char_smaller) and
                     check_alg(current_node.children[1], equal_list, comps_equal,
                               cc2, dep_graph_equal, first_rel_char_equal) and
                     check_alg(current_node.children[2], bigger_list, comps_bigger,
@@ -270,7 +273,7 @@ for i in range(1):
 
     else:
         runtime_start = time.time()
-        for comp in MY_UTIL.comp_pairs:
+        for comp in MY_UTIL.comp_pairs[0:1]:
             working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
 
         runtimes.append(time.time() - runtime_start)
