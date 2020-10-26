@@ -75,7 +75,7 @@ for i, word in enumerate(all_words):
 
         while s < n:
             count += 1
-            decision_tree[current_index].obj = (s - m, s)
+            decision_tree[current_index].obj = [s - m, s]
             current_path.append(decision_tree[current_index].obj)
 
             if word[s] < word[s - m]:

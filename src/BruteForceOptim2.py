@@ -16,6 +16,8 @@ from Util import Util
 n = 7
 m = 7
 DEBUG = True
+ONLY_HIGHEST_DEBUG = True
+
 MY_UTIL = Util(n, m)
 NR_WORKERS = 1
 NR_CALLS = 0
@@ -135,6 +137,11 @@ def check_alg(current_node, words, comps, first_rel_char):
     if not current_node.is_leaf:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
+            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 13):
+                print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
+                                                                  strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                                                  current_node.name,
+                                                                  current_node.obj, c_new))
 
             current_node.obj = c_new
 
