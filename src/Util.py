@@ -355,14 +355,14 @@ class Util:
 
     def save_algorithm(self, root, filename=None):
         self.create_dirs()
+        if root is not None:
+            print(len(root.descendants)+1)
         # stop if no algorithm was found or resulting graph was already saved before
         if root is None or (filename is None and '{}.json'.format(root.obj) in listdir(self.base_dir)):
             return
 
         # Verify (fill in correct r-values in tree on the way in order to pretty print it)
         if self.check_valid(root):
-            self.clean_up_final_tree(root)
-
             if filename is None:
                 filename = '{}'.format(root.obj)
 
@@ -370,19 +370,23 @@ class Util:
             with open(json_path, 'w') as f:
                 JsonExporter(indent=2).write(root, f)
 
-            DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
-                "{}/{}.dot".format(self.base_dir, filename))
+        #clean up and make indices start at 1 for dotfiles and images
+        self.clean_up_final_tree(root)
 
-            #make indices start at 1 for images
-            for node in list(LevelOrderIter(root)):
-                if isinstance(node.obj, list):
-                    node.obj = [node.obj[0]+1, node.obj[1]+1]
+        for node in list(LevelOrderIter(root)):
+            if isinstance(node.obj, list):
+                node.obj = [node.obj[0]+1, node.obj[1]+1]
 
-                elif isinstance(node.obj, int):
-                    node.obj += 1
-            if self.n < 7:
-                DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
-                    "{}/{}.png".format(self.base_dir, filename))
+            elif isinstance(node.obj, int):
+                node.obj += 1
+
+        DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_dotfile(
+            "{}/{}.dot".format(self.base_dir, filename))
+
+
+        if self.n < 7:
+            DotExporter(root, nodeattrfunc=lambda my_node: 'label="{}"'.format(my_node.obj)).to_picture(
+                "{}/{}.png".format(self.base_dir, filename))
 
     @staticmethod
     def clean_up_final_tree(root):

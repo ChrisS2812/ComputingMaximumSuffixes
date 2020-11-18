@@ -97,7 +97,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
     # # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # # investigate the subword a_{i+1} a_{i+2} ... a_n
     if root_comp[0] == 0:
-        comps_smaller = [c for c in comps_smaller if c[0] != 0]
+        comps_smaller = [c for c in comps_smaller if c[0] != 0] + [c for c in comps_smaller if c[0] == 0]
         first_rel_char_smaller = 1
     else:
         first_rel_char_smaller = 0
@@ -118,7 +118,7 @@ def check_alg(current_node, words, comps, first_rel_char):
     global NR_CALLS
     NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
-    if not comps or len(words) <= 1:
+    if not comps or len([l for l in words if len(l) > 0]) <= 1:
         return True
     #
     # comparisons_left = m - current_node.depth
@@ -137,14 +137,13 @@ def check_alg(current_node, words, comps, first_rel_char):
     if not current_node.is_leaf:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
-            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 13):
+            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 4):
                 print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
-                                                                  strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                                                                  current_node.name,
-                                                                  current_node.obj, c_new))
+                                                                          strftime("%Y-%m-%d %H:%M:%S", gmtime()),
+                                                                          current_node.name,
+                                                                          current_node.obj, c_new))
 
             current_node.obj = c_new
-
             bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(current_node.obj, words)
 
             # cc1 = copy.deepcopy(connected_components)
@@ -159,7 +158,8 @@ def check_alg(current_node, words, comps, first_rel_char):
             comps_smaller = [c for c in comps if c != c_new]
             first_rel_char_smaller = first_rel_char
             if c_new[0] == first_rel_char:
-                comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char]
+                comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char] + [c for c in comps_smaller if
+                                                                                        c[0] == first_rel_char]
                 first_rel_char_smaller += 1
             comps_equal = [c for c in comps if c != c_new]
             comps_bigger = [c for c in comps if c != c_new]
@@ -281,4 +281,4 @@ for i in range(1):
 
 print("Mean: {}".format(sum(runtimes) / len(runtimes)))
 print("Standarddeviation: {}".format(statistics.stdev(runtimes)))
-print("Standarderror: {}".format(statistics.stdev(runtimes) / sqrt(10)))
+print("Standarderror: {}".format(statistics.stdev(runtimes) / sqrt(i)))

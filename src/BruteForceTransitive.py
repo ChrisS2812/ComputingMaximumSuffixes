@@ -31,6 +31,7 @@ GRAPH_COPY_TIME = 0
 TRANS_COMP_TIME = 0
 NR_CALLS = 0
 
+
 # Generates an initial decision tree for M comparisons with given root value
 # Anytree helps navigating, manipulating and printing the tree (i.e. finding children, parents etc.)
 def generate_algorithm(root_value):
@@ -91,7 +92,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
     G_smaller = G.copy()
     G_equal = G.copy()
     G_bigger = G.copy()
-    GRAPH_COPY_TIME += (time.time()-start)
+    GRAPH_COPY_TIME += (time.time() - start)
 
     G_smaller.add_edge(root_comp[0], root_comp[1])
     G_equal.add_edge(root_comp[0], root_comp[1])
@@ -101,20 +102,18 @@ def check_alg_for_root_comp(root_comp, words, comps):
     # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
     # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # investigate the subword a_{i+1} a_{i+2} ... a_n
-    comps_new_smaller = [c for c in comps if c != root_comp]
+    comps_smaller = [c for c in comps if c != root_comp]
     if root_comp[0] == 0:
-        comps_new_smaller = [c for c in comps if c[0] != 0]
+        comps_smaller = [c for c in comps_smaller if c[0] != 0] + [c for c in comps_smaller if c[0] == 0]
         first_rel_char_smaller = 1
     else:
         first_rel_char_smaller = 0
 
-    if (check_alg(root_node.children[0], smaller_list, comps_new_smaller, cc, G_smaller, first_rel_char_smaller)
+    if (check_alg(root_node.children[0], smaller_list, comps_smaller, cc, G_smaller, first_rel_char_smaller)
             and check_alg(root_node.children[1], equal_list, [c for c in comps if c != root_comp], cc, G_equal, 0)
             and check_alg(root_node.children[2], bigger_list, [c for c in comps if c != root_comp], cc, G_bigger, 0)):
-        MY_UTIL.save_current_graph(root_node.root, is_final=True)
         return root_node
     else:
-        MY_UTIL.save_current_graph(root_node.root, is_final=True)
         return
 
 
@@ -141,10 +140,10 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
         Util.append_known_decision_tree(current_node, first_rel_char, subword_length_left)
         return True
 
-    if not current_node.is_leaf:
+    if current_node.depth < m:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
         for c_new in comps:
-            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 13):
+            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 4):
                 print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
                                                                           strftime("%Y-%m-%d %H:%M:%S", gmtime()),
                                                                           current_node.name,
@@ -171,7 +170,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             dep_graph_smaller = dep_graph.copy()
             dep_graph_equal = dep_graph.copy()
             dep_graph_bigger = dep_graph.copy()
-            GRAPH_COPY_TIME += (time.time()-start)
+            GRAPH_COPY_TIME += (time.time() - start)
 
             start = time.time()
             dep_graph_smaller.add_edge(c_new[0], c_new[1])
@@ -206,31 +205,44 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                         comps_bigger.remove(sorted([i, j]))
                     if sorted([i, j]) in comps_equal:
                         comps_equal.remove(sorted([i, j]))
-            TRANS_COMP_TIME += (time.time()-start)
+            TRANS_COMP_TIME += (time.time() - start)
 
             # check if prefixes can be excluded from further consideration
             first_rel_char_smaller = first_rel_char
             first_rel_char_equal = first_rel_char
             first_rel_char_bigger = first_rel_char
 
-            while nx.descendants(dep_graph_smaller, first_rel_char_smaller) - nx.descendants(dep_graph_smaller.reverse(True), first_rel_char_smaller):
+            while nx.descendants(dep_graph_smaller, first_rel_char_smaller) - nx.descendants(
+                    dep_graph_smaller.reverse(True), first_rel_char_smaller):
                 first_rel_char_smaller += 1
-            comps_smaller = [c for c in comps_smaller if c[0] >= first_rel_char_smaller]
+            comps_smaller = [c for c in comps_smaller if c[0] >= first_rel_char_smaller] + [c for c in comps_smaller if
+                                                                                            c[
+                                                                                                0] < first_rel_char_smaller]
 
-            while nx.descendants(dep_graph_equal, first_rel_char_equal) - nx.descendants(dep_graph_equal.reverse(True), first_rel_char_equal):
+            while nx.descendants(dep_graph_equal, first_rel_char_equal) - nx.descendants(dep_graph_equal.reverse(True),
+                                                                                         first_rel_char_equal):
                 first_rel_char_equal += 1
-            comps_equal = [c for c in comps_equal if c[0] >= first_rel_char_equal]
+            comps_equal = [c for c in comps_equal if c[0] >= first_rel_char_equal] + [c for c in comps_equal if
+                                                                                      c[0] < first_rel_char_equal]
 
-            while nx.descendants(dep_graph_bigger, first_rel_char_bigger) - nx.descendants(dep_graph_bigger.reverse(True), first_rel_char_bigger):
+            while nx.descendants(dep_graph_bigger, first_rel_char_bigger) - nx.descendants(
+                    dep_graph_bigger.reverse(True), first_rel_char_bigger):
                 first_rel_char_bigger += 1
-            comps_bigger = [c for c in comps_bigger if c[0] >= first_rel_char_bigger]
+            comps_bigger = [c for c in comps_bigger if c[0] >= first_rel_char_bigger] + [c for c in comps_bigger if
+                                                                                         c[0] < first_rel_char_bigger]
 
-            if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1,
-                          dep_graph_smaller, first_rel_char_smaller) and
-                    check_alg(current_node.children[1], equal_list, comps_equal,
-                              cc2, dep_graph_equal, first_rel_char_equal) and
-                    check_alg(current_node.children[2], bigger_list, comps_bigger,
-                              cc3, dep_graph_bigger, first_rel_char_bigger)):
+            # Append new children to the underlying tree if a smaller subtree has been appended previously
+            if not current_node.children:
+                Node(current_node.name * 3 + 1, obj='', last_checked=0, parent=current_node)
+                Node(current_node.name * 3 + 2, obj='', last_checked=0, parent=current_node)
+                Node(current_node.name * 3 + 3, obj='', last_checked=0, parent=current_node)
+
+            if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1, dep_graph_smaller,
+                          first_rel_char_smaller) and
+                    check_alg(current_node.children[1], equal_list, comps_equal, cc2, dep_graph_equal,
+                              first_rel_char_equal) and
+                    check_alg(current_node.children[2], bigger_list, comps_bigger, cc3, dep_graph_bigger,
+                              first_rel_char_bigger)):
                 return True
         return False
 
@@ -273,7 +285,7 @@ for i in range(1):
 
     else:
         runtime_start = time.time()
-        for comp in MY_UTIL.comp_pairs[0:1]:
+        for comp in MY_UTIL.comp_pairs:
             working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
 
         runtimes.append(time.time() - runtime_start)

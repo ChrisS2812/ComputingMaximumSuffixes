@@ -188,7 +188,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
         comps_new_equal = [c for c in comps if c != root_comp]
         comps_new_bigger = [c for c in comps if c != root_comp]
         if root_comp[0] == 0:
-            comps_new_smaller = [c for c in comps if c[0] != 0]
+            comps_new_smaller = [c for c in comps if c[0] != 0] + [c for c in comps if c[0] == 0]
             first_rel_char_smaller = 1
         else:
             first_rel_char_smaller = 0
@@ -218,7 +218,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
     TREE.edge(SIGNATURE[:-1], SIGNATURE)
 
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
-    if (USE_OPTIM2 or USE_ALL_OPTIM) and not comps or len(words) <= 1:
+    if (USE_OPTIM2 or USE_ALL_OPTIM) and not comps or len([l for l in words if len(l) > 0]) <= 1:
         return True
 
     if current_node.depth < m - 1:
@@ -250,12 +250,19 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             comps_smaller = comps
             comps_equal = comps
             comps_bigger = comps
+
+            first_rel_char_smaller = None
+            first_rel_char_equal = None
+            first_rel_char_bigger = None
             if USE_OPTIM2 or USE_ALL_OPTIM:
                 comps_smaller = [c for c in comps if c != c_new]
                 comps_equal = [c for c in comps if c != c_new]
                 comps_bigger = [c for c in comps if c != c_new]
 
-                comps_smaller = [c for c in comps_smaller if c[0] != c_new[0]]
+                if c_new[0] == first_rel_char:
+                    comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char] + [c for c in comps_smaller if c[0] == first_rel_char]
+                    first_rel_char_smaller += 1
+
 
             cc1 = None
             cc2 = None
@@ -263,9 +270,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             dep_graph_smaller = None
             dep_graph_equal = None
             dep_graph_bigger = None
-            first_rel_char_smaller = None
-            first_rel_char_equal = None
-            first_rel_char_bigger = None
+
             if USE_ALL_OPTIM:
                 cc1 = copy.deepcopy(connected_components)
                 cc2 = copy.deepcopy(connected_components)
@@ -285,37 +290,17 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                 dep_graph_bigger.add_edge(c_new[1], c_new[0])
 
                 # find nodes that are smaller/bigger than the character at c_new[0]
-                trans_smaller_bigger = nx.descendants(dep_graph_smaller, c_new[0])
+                trans_smaller_bigger = nx.descendants(dep_graph_smaller, c_new[1])
+                trans_smaller_bigger.add(c_new[1])
+
                 trans_smaller_smaller = nx.descendants(dep_graph_smaller.reverse(False), c_new[0])
                 trans_smaller_smaller.add(c_new[0])
 
-                trans_bigger_bigger = nx.descendants(dep_graph_bigger, c_new[1])
+                trans_bigger_bigger = nx.descendants(dep_graph_bigger, c_new[0])
+                trans_bigger_bigger.add(c_new[0])
+
                 trans_bigger_smaller = nx.descendants(dep_graph_bigger.reverse(False), c_new[1])
                 trans_bigger_smaller.add(c_new[1])
-
-                # check if prefixes can be excluded from further consideration
-                first_rel_char_smaller = first_rel_char
-                first_rel_char_equal = first_rel_char
-                first_rel_char_bigger = first_rel_char
-
-                while first_rel_char_smaller in trans_smaller_smaller:
-                    comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char_smaller]
-                    first_rel_char_smaller += 1
-
-                while first_rel_char_bigger in trans_bigger_smaller:
-                    comps_bigger = [c for c in comps_bigger if c[0] != first_rel_char_bigger]
-                    first_rel_char_bigger += 1
-
-                while True:
-                    if first_rel_char_equal in trans_smaller_smaller and first_rel_char_equal not in trans_bigger_bigger:
-                        comps_equal = [c for c in comps_equal if c[0] != first_rel_char_equal]
-                        first_rel_char_equal += 1
-
-                    elif first_rel_char_equal in trans_bigger_smaller and first_rel_char_equal not in trans_smaller_bigger:
-                        comps_equal = [c for c in comps_equal if c[0] != first_rel_char_equal]
-                        first_rel_char_equal += 1
-                    else:
-                        break
 
                 # remove transitively determined dependencies from further consideration
                 for i in trans_smaller_smaller:
@@ -332,13 +317,33 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                         if sorted([i, j]) in comps_equal:
                             comps_equal.remove(sorted([i, j]))
 
+                # check if prefixes can be excluded from further consideration
+                first_rel_char_smaller = first_rel_char
+                first_rel_char_equal = first_rel_char
+                first_rel_char_bigger = first_rel_char
+
+                while nx.descendants(dep_graph_smaller, first_rel_char_smaller) - nx.descendants(dep_graph_smaller.reverse(True), first_rel_char_smaller):
+                    first_rel_char_smaller += 1
+                comps_smaller = [c for c in comps_smaller if c[0] >= first_rel_char_smaller] + [c for c in comps_smaller if
+                                                                                               c[0] < first_rel_char_smaller]
+
+                while nx.descendants(dep_graph_equal, first_rel_char_equal) - nx.descendants(dep_graph_equal.reverse(True), first_rel_char_equal):
+                    first_rel_char_equal += 1
+                comps_equal = [c for c in comps_equal if c[0] >= first_rel_char_equal] + [c for c in comps_equal if
+                                                                                          c[0] < first_rel_char_equal]
+
+                while nx.descendants(dep_graph_bigger, first_rel_char_bigger) - nx.descendants(dep_graph_bigger.reverse(True), first_rel_char_bigger):
+                    first_rel_char_bigger += 1
+                comps_bigger = [c for c in comps_bigger if c[0] >= first_rel_char_bigger] + [c for c in comps_bigger if
+                                                                                             c[0] < first_rel_char_bigger]
+
             if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1,
-                          dep_graph_smaller,
-                          first_rel_char_smaller) and
-                    check_alg(current_node.children[1], equal_list, comps_equal,
-                              cc2, dep_graph_equal, first_rel_char_equal) and
-                    check_alg(current_node.children[2], bigger_list, comps_bigger,
-                              cc3, dep_graph_bigger, first_rel_char_bigger)):
+                      dep_graph_smaller,
+                      first_rel_char_smaller) and
+                check_alg(current_node.children[1], equal_list, comps_equal,
+                          cc2, dep_graph_equal, first_rel_char_equal) and
+                check_alg(current_node.children[2], bigger_list, comps_bigger,
+                          cc3, dep_graph_bigger, first_rel_char_bigger)):
                 return True
         return False
 

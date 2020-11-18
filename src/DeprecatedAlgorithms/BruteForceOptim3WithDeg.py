@@ -10,18 +10,22 @@ from multiprocessing import Pool
 from time import gmtime, strftime
 
 from anytree import Node
+from bitarray._bitarray import bitarray
 
 from Util import Util
 
 n = 7
 m = 7
 DEBUG = True
-ONLY_HIGHEST_DEBUG = True
-
 MY_UTIL = Util(n, m)
 NR_WORKERS = 1
-NR_CALLS = 0
+ALL_COMPS = MY_UTIL.comp_pairs
+NR_COMPS = len(ALL_COMPS)
 
+WD_TIME = 0
+COPY_TIME = 0
+NR_CALLS = 0
+NR_COMP_EVALS = 0
 # define how many comparisons are allowed that do not extend the underlying dependency graph
 max_m = int((4 * n - 5) / 3)
 max_non_endogeneous = max_m - n + 1
@@ -64,7 +68,9 @@ def generate_algorithm(root_value):
 
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
-def check_alg_for_root_comp(root_comp, words, comps):
+def check_alg_for_root_comp(comp_index, words, c: bitarray):
+    global WD_TIME, COPY_TIME, NR_COMP_EVALS
+    root_comp = ALL_COMPS[comp_index]
     root_node = generate_algorithm(root_comp)
 
     if DEBUG:
@@ -72,10 +78,18 @@ def check_alg_for_root_comp(root_comp, words, comps):
                                                                                root_comp))
     # Note: We do not want to manipulate the root - different root-values will be checked in other executions
     # Compute three subsets of the words and of the tree
+    runtime_start = time.time()
     bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(root_comp, words)
-    comps_smaller = [c for c in comps if c != root_comp]
-    comps_equal = [c for c in comps if c != root_comp]
-    comps_bigger = [c for c in comps if c != root_comp]
+    NR_COMP_EVALS += len(words)
+    WD_TIME += (time.time() - runtime_start)
+    c[comp_index] = False
+
+    runtime_start = time.time()
+    c_smaller = c.copy()
+    c_equal = c.copy()
+    c_bigger = c.copy()
+    COPY_TIME += (time.time() - runtime_start)
+
     # union-find datastructure that is used to keep track if the underlying ordering graph is yet weakly connected
     # cc = UF(n)
     # cc.union(root_comp[0], root_comp[1])
@@ -97,14 +111,26 @@ def check_alg_for_root_comp(root_comp, words, comps):
     # # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
     # # investigate the subword a_{i+1} a_{i+2} ... a_n
     if root_comp[0] == 0:
-        comps_smaller = [c for c in comps_smaller if c[0] != 0] + [c for c in comps_smaller if c[0] == 0]
+        c_smaller[0:n - 1:1] = False
         first_rel_char_smaller = 1
     else:
         first_rel_char_smaller = 0
 
-    if (check_alg(root_node.children[0], smaller_list, comps_smaller, first_rel_char_smaller)
-            and check_alg(root_node.children[1], equal_list, comps_equal, 0)
-            and check_alg(root_node.children[2], bigger_list, comps_bigger, 0)):
+    #flags that are True when an incoming edge exists for vertex i
+    inc = bitarray()
+    inc.extend(False for _ in range(n))
+
+    #flags that are True when an outgoing edge exists for vertex i
+    outg = bitarray()
+    outg.extend(False for _ in range(n))
+
+    #flags that are True when a vertex is blocked for optim 3 (when it has two inc. or two outg. edges)
+    blocked = bitarray()
+    blocked.extend(False for _ in range(n))
+
+    if (check_alg(root_node.children[0], smaller_list, c_smaller, first_rel_char_smaller, inc, outg, blocked)
+            and check_alg(root_node.children[1], equal_list, c_equal, 0, inc, outg, blocked)
+            and check_alg(root_node.children[2], bigger_list, c_bigger, 0, inc, outg, blocked)):
         return root_node
     else:
         return
@@ -112,11 +138,11 @@ def check_alg_for_root_comp(root_comp, words, comps):
 
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
-def check_alg(current_node, words, comps, first_rel_char):
-    global NR_CALLS
+def check_alg(current_node, words, c: bitarray, first_rel_char, inc, outg, blocked):
+    global WD_TIME, COPY_TIME, NR_CALLS, NR_COMP_EVALS
     NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
-    if not comps or len([w for w in words if len(w) > 0]) <= 1:
+    if not c.any() or len([w for w in words if len(w) > 0]) <= 1:
         return True
     #
     # comparisons_left = m - current_node.depth
@@ -134,17 +160,13 @@ def check_alg(current_node, words, comps, first_rel_char):
 
     if current_node.depth < m - 1:
         # Divide - here we want to check all possible values for the node (that have not yet been checked)
-        for c_new in comps:
-            if DEBUG and (not ONLY_HIGHEST_DEBUG or current_node.name < 4):
-                print("({}, {}) Increasing index {} from {} to {}".format(current_node.root.obj,
-                                                                          strftime("%Y-%m-%d %H:%M:%S", gmtime()),
-                                                                          current_node.name,
-                                                                          current_node.obj, c_new))
-
+        for i in [i for i, bit in enumerate(c) if bit]:
+            c_new = ALL_COMPS[i]
             current_node.obj = c_new
-
+            runtime_start = time.time()
             bigger_list, equal_list, smaller_list = MY_UTIL.divide_words(current_node.obj, words)
-
+            NR_COMP_EVALS += len(words)
+            WD_TIME += (time.time() - runtime_start)
             # cc1 = copy.deepcopy(connected_components)
             # cc2 = copy.deepcopy(connected_components)
             # cc3 = copy.deepcopy(connected_components)
@@ -154,13 +176,25 @@ def check_alg(current_node, words, comps, first_rel_char):
             # cc3.union(c_new[0], c_new[1])
 
             # prepare list of remaining comparions for each child
-            comps_smaller = [c for c in comps if c != c_new]
+            runtime_start = time.time()
+            c_smaller = c.copy()
+            c_equal = c.copy()
+            c_bigger = c.copy()
+            COPY_TIME += (time.time() - runtime_start)
+
+            c_smaller[i] = False
+            c_equal[i] = False
+            c_bigger[i] = False
+
             first_rel_char_smaller = first_rel_char
-            if c_new[0] == first_rel_char:
-                comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char] + [c for c in comps_smaller if c[0] == first_rel_char]
+            if c_new[0] == first_rel_char and not blocked[c_new[0]]:
+                start = 0
+                for i in range(first_rel_char):
+                    start += n - 1 - i
+                end = start + n - 1 - first_rel_char
+
+                c_smaller[start:end:1] = False
                 first_rel_char_smaller += 1
-            comps_equal = [c for c in comps if c != c_new]
-            comps_bigger = [c for c in comps if c != c_new]
             #
             # connected_components.union(c_new[0], c_new[1])
             #
@@ -221,9 +255,53 @@ def check_alg(current_node, words, comps, first_rel_char):
             #         if sorted([i, j]) in comps_equal:
             #             comps_equal.remove(sorted([i, j]))
 
-            if (check_alg(current_node.children[0], smaller_list, comps_smaller, first_rel_char_smaller) and
-                    check_alg(current_node.children[1], equal_list, comps_equal, first_rel_char) and
-                    check_alg(current_node.children[2], bigger_list, comps_bigger, first_rel_char)):
+            inc_smaller = inc.copy()
+            inc_equal = inc.copy()
+            inc_bigger = inc.copy()
+
+            outg_smaller = outg.copy()
+            outg_equal = outg.copy()
+            outg_bigger = outg.copy()
+
+            blocked_smaller = blocked.copy()
+            blocked_equal = blocked.copy()
+            blocked_bigger = blocked.copy()
+
+            if outg[c_new[0]]:
+                blocked_smaller[c_new[0]] = True
+                blocked_equal[c_new[0]] = True
+            else:
+                outg_smaller[c_new[0]] = True
+                inc_equal[c_new[0]] = True
+                outg_equal[c_new[0]] = True
+
+            if inc[c_new[0]]:
+                blocked_bigger[c_new[0]] = True
+                blocked_equal[c_new[0]] = True
+            else:
+                inc_bigger[c_new[0]] = True
+                inc_equal[c_new[0]] = True
+                outg_equal[c_new[0]] = True
+
+            if outg[c_new[1]]:
+                blocked_bigger[c_new[1]] = True
+                blocked_equal[c_new[1]] = True
+            else:
+                outg_bigger[c_new[1]] = True
+                outg_equal[c_new[1]] = True
+                inc_equal[c_new[1]] = True
+
+            if inc[c_new[1]]:
+                blocked_smaller[c_new[1]] = True
+                blocked_equal[c_new[1]] = True
+            else:
+                inc_smaller[c_new[1]] = True
+                inc_equal[c_new[1]] = True
+                outg_equal[c_new[1]] = True
+
+            if (check_alg(current_node.children[0], smaller_list, c_smaller, first_rel_char_smaller, inc_smaller, outg_smaller, blocked_smaller) and
+                    check_alg(current_node.children[1], equal_list, c_equal, first_rel_char, inc_equal, outg_equal, blocked_equal) and
+                    check_alg(current_node.children[2], bigger_list, c_bigger, first_rel_char, inc_bigger, outg_bigger, blocked_bigger)):
                 return True
         return False
 
@@ -234,8 +312,9 @@ def check_alg(current_node, words, comps, first_rel_char):
         if nr_nonempty > 3:
             return False
 
-        for c_new in comps:
+        for index in [i for i, bit in enumerate(c) if bit]:
             NR_CALLS += 1
+            c_new = ALL_COMPS[index]
             i, j = c_new
             results = []
             for l in nonempty_lists:
@@ -251,6 +330,7 @@ def check_alg(current_node, words, comps, first_rel_char):
                 final_results = [set(r) for r in results]
                 for k in range(nr_nonempty):
                     for word in nonempty_lists[k]:
+                        NR_COMP_EVALS += 1
                         if word[i] < word[j]:
                             final_results[k].add("<")
                         elif word[i] == word[j]:
@@ -270,9 +350,10 @@ def check_alg(current_node, words, comps, first_rel_char):
 
 
 runtimes = []
+wdtimes = []
 words_with_max_suffix = MY_UTIL.generate_all_words()
 
-for i in range(1):
+for i in range(10):
     working_algs = []
     if NR_WORKERS > 1:
         # worker pool - each worker is responsible for a single root value
@@ -280,8 +361,10 @@ for i in range(1):
         runtime_start = time.time()
         try:
             results = []
-            for comp in MY_UTIL.comp_pairs:
-                r = workers.apply_async(check_alg_for_root_comp, (comp, words_with_max_suffix, MY_UTIL.comp_pairs),
+            for comp_index in range(NR_COMPS):
+                c = bitarray()
+                c.extend(True for _ in range(len(MY_UTIL.comp_pairs)))
+                r = workers.apply_async(check_alg_for_root_comp, (comp_index, words_with_max_suffix, c),
                                         callback=MY_UTIL.check_valid)
                 results.append(r)
             for r in results:
@@ -297,20 +380,37 @@ for i in range(1):
             print("pool successfully closed")
         runtimes.append(time.time() - runtime_start)
         print("Runtime: {}s".format(time.time() - runtime_start))
+        print(WD_TIME)
+        print("Nr comp. evals. on words: {}".format(NR_COMP_EVALS))
+
     else:
         runtime_start = time.time()
-        for comp in MY_UTIL.comp_pairs:
-            working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
+        for comp_index in range(NR_COMPS):
+            c = bitarray()
+            c.extend(True for _ in range(len(MY_UTIL.comp_pairs)))
+            working_algs.append(check_alg_for_root_comp(comp_index, words_with_max_suffix, c))
+        print("Nr calls: {}".format(NR_CALLS))
+        NR_CALLS = 0
 
         runtimes.append(time.time() - runtime_start)
         print("Runtime: {}s".format(time.time() - runtime_start))
-        print("Nr. calls: {}".format(NR_CALLS))
-        NR_CALLS = 0
+        print("Time for dividing words: {}s".format(WD_TIME))
+        wdtimes.append(WD_TIME)
+        WD_TIME = 0
+        print("Time for copying c: {}s".format(COPY_TIME))
+        COPY_TIME = 0
+        print("Nr comp. evals. on words: {}".format(NR_COMP_EVALS))
+        NR_COMP_EVALS = 0
 
-        for i, root in enumerate(working_algs):
-            if root is not None:
-                MY_UTIL.check_valid(root)
+for i, root in enumerate(working_algs):
+    if root is not None:
+        MY_UTIL.check_valid(root)
 
 print("Mean: {}".format(sum(runtimes) / len(runtimes)))
 print("Standarddeviation: {}".format(statistics.stdev(runtimes)))
-print("Standarderror: {}".format(statistics.stdev(runtimes) / sqrt(i)))
+print("Standarderror: {}".format(statistics.stdev(runtimes) / sqrt(10)))
+
+print("WDTIME:")
+print("Mean: {}".format(sum(wdtimes) / len(wdtimes)))
+print("Standarddeviation: {}".format(statistics.stdev(wdtimes)))
+print("Standarderror: {}".format(statistics.stdev(wdtimes) / sqrt(10)))
