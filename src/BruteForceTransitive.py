@@ -2,11 +2,9 @@
 # coding: utf-8
 
 import copy
-import statistics
 # This tries to find an algorithm that finds the longest suffix of any given word with length N while using only M
 # comparisons
 import time
-from cmath import sqrt
 from multiprocessing import Pool
 from time import gmtime, strftime
 
@@ -27,8 +25,7 @@ NR_WORKERS = 1
 max_m = int((4 * n - 5) / 3)
 max_non_endogeneous = max_m - n + 1
 
-GRAPH_COPY_TIME = 0
-TRANS_COMP_TIME = 0
+GRAPH_TIME = 0
 NR_CALLS = 0
 
 
@@ -70,7 +67,7 @@ def generate_algorithm(root_value):
 # Preparation step for check_alg: Loads existent algorithm state for given root comparison value if it exists,
 # else it generates a first sensible algorithm state before calling check_alg
 def check_alg_for_root_comp(root_comp, words, comps):
-    global GRAPH_COPY_TIME
+    global GRAPH_TIME
     root_node = generate_algorithm(root_comp)
 
     if DEBUG:
@@ -92,12 +89,13 @@ def check_alg_for_root_comp(root_comp, words, comps):
     G_smaller = G.copy()
     G_equal = G.copy()
     G_bigger = G.copy()
-    GRAPH_COPY_TIME += (time.time() - start)
 
     G_smaller.add_edge(root_comp[0], root_comp[1])
     G_equal.add_edge(root_comp[0], root_comp[1])
     G_equal.add_edge(root_comp[1], root_comp[0])
     G_bigger.add_edge(root_comp[1], root_comp[0])
+
+    GRAPH_TIME += (time.time() - start)
 
     # If, for a word w=a_1 a_2 ... a_n, we already know that the max_suffix is in the subword a_i ... a_n and we
     # conduct a comparison between the a_i and a_j which yields  a_i < a_j we can subsequently only
@@ -120,7 +118,7 @@ def check_alg_for_root_comp(root_comp, words, comps):
 # Recursively checks all possible decision trees with a given root-value in a Divide and Conquer approach.
 # Returns 'True' if a correct decision tree was found.
 def check_alg(current_node, words, comps, connected_components, dep_graph, first_rel_char):
-    global GRAPH_COPY_TIME, TRANS_COMP_TIME, NR_CALLS
+    global GRAPH_TIME, NR_CALLS
     NR_CALLS += 1
     # If only one word is left from previous comparisons we can immediately decide for this words r-value
     if not comps or len([l for l in words if len(l) > 0]) <= 1:
@@ -166,13 +164,15 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             cc2.union(c_new[0], c_new[1])
             cc3.union(c_new[0], c_new[1])
 
+            first_rel_char_smaller = first_rel_char
+            first_rel_char_equal = first_rel_char
+            first_rel_char_bigger = first_rel_char
+
             start = time.time()
             dep_graph_smaller = dep_graph.copy()
             dep_graph_equal = dep_graph.copy()
             dep_graph_bigger = dep_graph.copy()
-            GRAPH_COPY_TIME += (time.time() - start)
 
-            start = time.time()
             dep_graph_smaller.add_edge(c_new[0], c_new[1])
             dep_graph_equal.add_edge(c_new[0], c_new[1])
             dep_graph_equal.add_edge(c_new[1], c_new[0])
@@ -205,13 +205,8 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                         comps_bigger.remove(sorted([i, j]))
                     if sorted([i, j]) in comps_equal:
                         comps_equal.remove(sorted([i, j]))
-            TRANS_COMP_TIME += (time.time() - start)
 
             # check if prefixes can be excluded from further consideration
-            first_rel_char_smaller = first_rel_char
-            first_rel_char_equal = first_rel_char
-            first_rel_char_bigger = first_rel_char
-
             while nx.descendants(dep_graph_smaller, first_rel_char_smaller) - nx.descendants(
                     dep_graph_smaller.reverse(True), first_rel_char_smaller):
                 first_rel_char_smaller += 1
@@ -236,6 +231,8 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                 Node(current_node.name * 3 + 1, obj='', last_checked=0, parent=current_node)
                 Node(current_node.name * 3 + 2, obj='', last_checked=0, parent=current_node)
                 Node(current_node.name * 3 + 3, obj='', last_checked=0, parent=current_node)
+
+            GRAPH_TIME += (time.time() - start)
 
             if (check_alg(current_node.children[0], smaller_list, comps_smaller, cc1, dep_graph_smaller,
                           first_rel_char_smaller) and
@@ -288,10 +285,11 @@ for i in range(1):
         for comp in MY_UTIL.comp_pairs:
             working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
 
-        runtimes.append(time.time() - runtime_start)
-        print("Runtime: {}s".format(time.time() - runtime_start))
-        print("Graph copy time: {}s".format(GRAPH_COPY_TIME))
-        print("Trans comp time: {}s".format(TRANS_COMP_TIME))
+        runtime = time.time() - runtime_start
+        runtimes.append(runtime)
+        print("Runtime: {}s".format(runtime))
+        print("Graph time: {}s".format(GRAPH_TIME))
+        print("Graph time (total percentage): {}%".format(GRAPH_TIME / runtime))
         print("Nr calls: {}".format(NR_CALLS))
         NR_CALLS = 0
         GRAPH_COPY_TIME = 0
@@ -300,7 +298,3 @@ for i in range(1):
         for i, root in enumerate(working_algs):
             if root is not None:
                 MY_UTIL.check_valid(root)
-
-print("Mean: {}".format(sum(runtimes) / len(runtimes)))
-print("Standarddeviation: {}".format(statistics.stdev(runtimes)))
-print("Standarderror: {}".format(statistics.stdev(runtimes) / sqrt(10)))

@@ -245,9 +245,11 @@ for i in range(1):
     for comp in MY_UTIL.comp_pairs:
         working_algs.append(check_alg_for_root_comp(comp, words_with_max_suffix, MY_UTIL.comp_pairs))
 
-    runtimes.append(time.time() - runtime_start)
-    print("Runtime: {}s".format(time.time() - runtime_start))
+    runtime = time.time() - runtime_start
+    runtimes.append(runtime)
+    print("Runtime: {}s".format(runtime))
     print("CC time: {}s".format(CC_TIME))
+    print("CC time (total percentage): {}%".format(CC_TIME / runtime))
     print("Nr calls: {}".format(NR_CALLS))
     NR_CALLS = 0
 

@@ -235,7 +235,6 @@ def check_alg(current_node, words, comps, first_rel_char):
             return False
 
         for c_new in comps:
-            NR_CALLS += 1
             i, j = c_new
             results = []
             for l in nonempty_lists:

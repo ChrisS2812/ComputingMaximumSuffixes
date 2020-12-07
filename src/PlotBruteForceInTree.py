@@ -251,9 +251,9 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
             comps_equal = comps
             comps_bigger = comps
 
-            first_rel_char_smaller = None
-            first_rel_char_equal = None
-            first_rel_char_bigger = None
+            first_rel_char_smaller = first_rel_char
+            first_rel_char_equal = first_rel_char
+            first_rel_char_bigger = first_rel_char
             if USE_OPTIM2 or USE_ALL_OPTIM:
                 comps_smaller = [c for c in comps if c != c_new]
                 comps_equal = [c for c in comps if c != c_new]
@@ -261,8 +261,7 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
 
                 if c_new[0] == first_rel_char:
                     comps_smaller = [c for c in comps_smaller if c[0] != first_rel_char] + [c for c in comps_smaller if c[0] == first_rel_char]
-                    first_rel_char_smaller += 1
-
+                    first_rel_char_smaller = first_rel_char + 1
 
             cc1 = None
             cc2 = None
@@ -316,11 +315,6 @@ def check_alg(current_node, words, comps, connected_components, dep_graph, first
                             comps_bigger.remove(sorted([i, j]))
                         if sorted([i, j]) in comps_equal:
                             comps_equal.remove(sorted([i, j]))
-
-                # check if prefixes can be excluded from further consideration
-                first_rel_char_smaller = first_rel_char
-                first_rel_char_equal = first_rel_char
-                first_rel_char_bigger = first_rel_char
 
                 while nx.descendants(dep_graph_smaller, first_rel_char_smaller) - nx.descendants(dep_graph_smaller.reverse(True), first_rel_char_smaller):
                     first_rel_char_smaller += 1

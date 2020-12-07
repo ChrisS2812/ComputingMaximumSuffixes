@@ -24,6 +24,7 @@ difficult_words_file = os.path.join('Fuzzy', '{}_difficult_words.json'.format(n)
 if os.path.exists(difficult_words_file):
     with open(difficult_words_file, 'r') as f:
         difficult_words = json.load(f)
+difficult_words_string = [''.join(map(str, w)) for w in difficult_words]
 
 all_words = itertools.product(range(n), repeat=n)
 already_seen_comps = {}
@@ -72,7 +73,7 @@ for i, word in enumerate(all_words):
             nr_comparisons_count[count] += 1
         total_count += 1
 
-        if ''.join(map(str, word)) in difficult_words:
+        if ''.join(map(str, word)) in difficult_words_string:
             difficult_paths.append(current_path)
             r_difficult.append(Util.max_suffix_duval(word))
 
@@ -86,5 +87,5 @@ for comp_val in occ_nr_comparisons:
 with open(txt_filepath, 'w') as f:
     print(tabulate(result_list, headers=['#Comparisons', '#Words', 'Percentage'], tablefmt='orgtbl'), file=f)
     print("\nDifficult words:", file=f)
-    for i, w in enumerate(difficult_words):
+    for i, w in enumerate(difficult_words_string):
         print("{} {} [r={}]".format(w, difficult_paths[i], r_difficult[i]), file=f)

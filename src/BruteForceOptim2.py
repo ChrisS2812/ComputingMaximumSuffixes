@@ -278,7 +278,3 @@ for i in range(1):
         for i, root in enumerate(working_algs):
             if root is not None:
                 MY_UTIL.check_valid(root)
-
-print("Mean: {}".format(sum(runtimes) / len(runtimes)))
-print("Standarddeviation: {}".format(statistics.stdev(runtimes)))
-print("Standarderror: {}".format(statistics.stdev(runtimes) / sqrt(i)))
